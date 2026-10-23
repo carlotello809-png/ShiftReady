@@ -5,21 +5,17 @@ eliges la mejor respuesta y el cliente reacciona según lo que contestes. Si tar
 
 ## Cómo abrirlo
 
-Haz doble clic en `index.html`. No necesita instalar nada. La voz de bienvenida suena sola al abrir.
-
-**Para que la voz suene sin hacer clic (una sola vez):** Edge, por defecto, no deja que una página
-suene hasta que la tocas. En Edge escribe `edge://settings/content/mediaAutoplay` en la barra de
-direcciones y en "Control if audio and video play automatically on sites" elige **Allow (Permitir)**.
-Desde ahí, cada vez que abras `index.html` la voz suena de una vez. Si no lo cambias, la entrada se ve
-igual pero sin la voz.
+Haz doble clic en `index.html`. No necesita instalar nada. Funciona en computadora y en teléfono.
 
 (Con internet se ven las fotos de perfil y la tipografía; sin internet funciona igual con iniciales.)
 
 ## Cómo se juega
 
-- **Entrada:** sobre el simulador difuminado suena tu audio de voz y cada palabra aparece cuando se
-  dice, con letra estilo iPhone: "Welcome to ShiftReady" → "A Customer Service Simulator".
-  Después aparece el logo y se quita el difuminado. Arranca sola, se salta con cualquier tecla o clic,
+- **Entrada:** sobre el simulador difuminado aparece el logo con "Tap to start" / "Click to start".
+  Al presionarlo suena tu audio de voz y cada palabra aparece cuando se dice, con letra estilo iPhone:
+  "Welcome to ShiftReady" → "A Customer Service Simulator"; después se quita el difuminado. Empezar con
+  un toque es lo que permite que la voz suene en cualquier navegador, también en teléfonos. Ya empezada,
+  se salta con cualquier tecla o clic,
   se repite desde el lobby ("Replay welcome") y se desactiva en Settings. El texto y sus tiempos
   están al inicio de `assets/js/boot.js` (`LINES`), por si cambias el audio.
 - **Lobby:** tu logo y al lado el botón redondeado **Press!** (se mueve como un botón real: da un

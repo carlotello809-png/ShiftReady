@@ -1388,6 +1388,9 @@
     sfx(soundFor(t));
   }, true);
   document.addEventListener('keydown', () => unlockAudio(), true);
+  // Phones only allow sound once a tap has finished
+  document.addEventListener('click', () => unlockAudio(), true);
+  document.addEventListener('touchend', () => unlockAudio(), { capture: true, passive: true });
 
   /* ---------- "How to start": the voice guide, its words shown as they are spoken ----------
      Timed to assets/audio/how-to-start-voice.mp3: [from ms, to ms, words, highlight]. */
@@ -1937,7 +1940,7 @@
       case 'doc': openDoc(t.dataset.doc, t); break;
       case 'doc-tab': if (ui.doc && t.dataset.doc !== ui.doc.key) showDoc(t.dataset.doc, true); break;
       case 'doc-close': closeDoc(); break;
-      case 'replay-boot': stopHowto(); if (SR.boot) SR.boot.play(); break;
+      case 'replay-boot': stopHowto(); if (SR.boot) SR.boot.play({ instant: true }); break;
       case 'howto': if (howto) stopHowto(); else playHowto(); break;
       case 'theme': store.theme = store.theme === 'dark' ? 'light' : 'dark'; saveStore(); applyTheme(); break;
       case 'm-back': case 'm-chats': closeDoc(); setMobileView('list'); break;

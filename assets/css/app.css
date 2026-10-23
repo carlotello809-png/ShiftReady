@@ -919,8 +919,31 @@ html.boot-on, html.boot-on body { overflow: hidden; }
 .boot-w1 { font-size: clamp(44px, 7.4vw, 100px); font-weight: 600; letter-spacing: -.024em; line-height: 1.05; }
 .boot-w2 { font-size: clamp(30px, 5.4vw, 60px); font-weight: 600; letter-spacing: -.018em; line-height: 1.1; }
 .boot-word .bw { display: inline-block; opacity: 0; will-change: opacity, transform, filter; }
-.boot-logo { position: absolute; opacity: 0; pointer-events: none; }
-.boot-logo img { display: block; width: min(38vw, 176px); height: auto; filter: drop-shadow(0 18px 40px rgba(0, 0, 0, .28)); user-select: none; -webkit-user-drag: none; }
+/* The logo waits to be pressed; pressing it starts the voice */
+.boot.waiting { cursor: pointer; }
+.boot-logo {
+  position: absolute; display: flex; flex-direction: column; align-items: center; gap: 22px; opacity: 0;
+  padding: 12px; border: 0; background: none; color: var(--ink-2); font: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.boot-logo:focus { outline: none; }
+.boot-logo:focus-visible img { outline: 2px solid var(--primary); outline-offset: 6px; }
+.boot-logo img {
+  display: block; width: min(38vw, 176px); height: auto; filter: drop-shadow(0 18px 40px rgba(0, 0, 0, .28));
+  user-select: none; -webkit-user-drag: none; transition: transform 460ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.boot.waiting .boot-logo img { animation: bootLogoIdle 2.8s ease-in-out 1s infinite; }
+.boot-logo:active img, .boot.waiting .boot-logo:active img { animation: none; transform: scale(0.94); transition-duration: 90ms; }
+.boot-hint { font-size: 15px; font-weight: 500; letter-spacing: .01em; opacity: 0; }
+.boot.waiting .boot-hint { animation: bootHint 2.8s ease-in-out 1.4s infinite; }
+@keyframes bootLogoIdle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+@keyframes bootHint { 0%, 100% { color: var(--ink-3); } 50% { color: var(--ink); } }
+@media (hover: hover) and (pointer: fine) {
+  .boot.waiting .boot-logo:hover img { animation-play-state: paused; transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot.waiting .boot-logo img, .boot.waiting .boot-hint { animation: none; }
+}
 
 /* =========================================================
    CUSTOMER FILE — tiles in the side panel

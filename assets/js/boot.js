@@ -1,10 +1,10 @@
-/* ShiftReady — start-up sequence over the blurred simulator (starts by itself, no click)
-   1. The voice plays as soon as the page opens and its words appear as they are spoken:
+/* ShiftReady — start-up sequence over the blurred simulator
+   1. The logo appears, with "Tap to start" / "Click to start" underneath
+   2. Pressing it (or anywhere, or a key) starts the voice, and its words appear as they are spoken:
       "Welcome to ShiftReady" → "A Customer Service Simulator"
-   2. The logo fades in and out
    3. The blur dissolves and the simulator is revealed
-   Browsers only play sound on open when allowed (Edge: edge://settings/content/mediaAutoplay → Allow).
-   If the browser blocks it, the same sequence plays silently. Click or any key skips. Can be turned off in Settings. */
+   Starting with a press is what lets every browser, on phones too, play the voice.
+   Once started, a click or a key skips. Can be turned off in Settings. */
 window.SR = window.SR || {};
 (function () {
   'use strict';
@@ -18,9 +18,9 @@ window.SR = window.SR || {};
     { tag: 'h1', cls: 'boot-w1', words: [['Welcome', 50], ['to', 460], ['ShiftReady', 600]], out: 1580 },
     { tag: 'p', cls: 'boot-w2', words: [['A', 1880], ['Customer', 2000], ['Service', 2560], ['Simulator', 2960]], out: 4400 }
   ];
-  const LOGO_IN = 4950, LOGO_OUT = 6350, REVEAL = 6650;
+  const REVEAL = 5060;
   const FADE_IN = 700, FADE_OUT = 340, FADE_OUT_LAST = 560;
-  const AUTOPLAY_WAIT = 700;   // if the voice has not started by then, play the sequence silently
+  const VOICE_WAIT = 900;   // if the voice has not started by then, show the words without it
 
   const listeners = [];
   let finished = false;
@@ -29,6 +29,7 @@ window.SR = window.SR || {};
   SR.boot = {
     get done() { return finished; },
     onDone(fn) { if (finished) fn(); else listeners.push(fn); },
+    // opts.instant: start the voice right away (only when called from a click, e.g. "Replay welcome")
     play: play
   };
 
@@ -48,14 +49,15 @@ window.SR = window.SR || {};
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  function play() {
+  function play(opts) {
     if (running) return;
     running = true;
     finished = false;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const touch = window.matchMedia('(pointer: coarse)').matches;
 
     const root = document.createElement('div');
-    root.className = 'boot';
+    root.className = 'boot waiting';
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
     root.setAttribute('aria-label', 'Welcome to the Customer Service Simulator');
@@ -63,12 +65,16 @@ window.SR = window.SR || {};
       LINES.map(l => '<' + l.tag + ' class="boot-word ' + l.cls + '">' +
         l.words.map(w => '<span class="bw">' + esc(w[0]) + '</span>').join(' ') +
         '</' + l.tag + '>').join('') +
-      '<div class="boot-logo" aria-hidden="true"><img src="assets/img/logo-768.png" alt="" draggable="false"></div>';
+      '<button type="button" class="boot-logo" aria-label="Start">' +
+        '<img src="assets/img/logo-768.png" alt="" draggable="false">' +
+        '<span class="boot-hint">' + (touch ? 'Tap to start' : 'Click to start') + '</span>' +
+      '</button>';
     document.body.appendChild(root);
     document.documentElement.classList.add('boot-on');
 
     const words = Array.prototype.slice.call(root.querySelectorAll('.boot-word'));
     const logo = root.querySelector('.boot-logo');
+    const hint = root.querySelector('.boot-hint');
     const anims = [];
     const A = (el, kf, opt) => { const a = el.animate(kf, Object.assign({ fill: 'both' }, opt)); anims.push(a); return a; };
 
@@ -77,41 +83,52 @@ window.SR = window.SR || {};
     const before = reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(14px) scale(0.98)', filter: 'blur(8px)' };
     const after = reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(-10px) scale(1.01)', filter: 'blur(6px)' };
 
+    let phase = 'logo';      // logo → words → done
+    // Load the voice while the logo waits, so it starts the moment the logo is pressed
     const voice = makeVoice();
-    let started = false;
+    if (voice) { try { voice.load(); } catch (e) { /* ignore */ } }
     let timer = 0;
 
+    // 1. The logo comes in and waits to be pressed
+    A(logo, [reduce ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.92)', filter: 'blur(6px)' }, show],
+      { duration: 700, delay: 150, easing: EASE_OUT });
+    A(hint, [{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: 750, easing: EASE_OUT });
+    try { logo.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+
+    // 2. Pressed: the voice starts here, inside the press, so the browser allows the sound
+    function begin() {
+      if (phase !== 'logo') return;
+      phase = 'words';
+      root.classList.remove('waiting');
+      A(logo, [{ opacity: Number(getComputedStyle(logo).opacity) || 1 }, reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(-18px) scale(0.9)', filter: 'blur(5px)' }],
+        { duration: 380, easing: EASE_OUT, fill: 'forwards' });
+      logo.style.pointerEvents = 'none';
+      if (!voice) { startWords(); return; }
+      let settled = false;
+      const silent = () => { if (settled) return; settled = true; stopVoice(false); startWords(); };
+      const waitTimer = setTimeout(silent, VOICE_WAIT);
+      let p;
+      try { p = voice.play(); } catch (e) { p = Promise.reject(e); }
+      Promise.resolve(p).then(() => {
+        if (settled) { stopVoice(false); return; }
+        settled = true; clearTimeout(waitTimer); startWords();
+      }, () => { clearTimeout(waitTimer); silent(); });
+    }
+
     // The words start together with the voice so they stay in sync
-    function start() {
-      if (started || revealed) return;
-      started = true;
+    let wordsStarted = false;
+    function startWords() {
+      if (wordsStarted || revealed) return;
+      wordsStarted = true;
       LINES.forEach((l, i) => {
         const el = words[i];
         const last = i === LINES.length - 1;
-        // Each word appears as it is spoken
         el.style.opacity = '1';
         el.querySelectorAll('.bw').forEach((w, k) =>
           A(w, [before, show], { duration: FADE_IN, delay: l.words[k][1], easing: EASE_OUT }));
         A(el, [show, after], { duration: last ? FADE_OUT_LAST : FADE_OUT, delay: l.out, easing: EASE_IN_OUT, fill: 'forwards' });
       });
-      A(logo, [reduce ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.94)', filter: 'blur(6px)' }, show],
-        { duration: 700, delay: LOGO_IN, easing: EASE_OUT });
-      A(logo, [show, reduce ? { opacity: 0 } : { opacity: 0, transform: 'scale(1.04)', filter: 'blur(4px)' }],
-        { duration: 450, delay: LOGO_OUT, easing: EASE_OUT, fill: 'forwards' });
       timer = setTimeout(reveal, REVEAL);
-    }
-
-    if (!voice) start();
-    else {
-      let settled = false;
-      const silent = () => { if (settled) return; settled = true; stopVoice(false); start(); };
-      const waitTimer = setTimeout(silent, AUTOPLAY_WAIT);
-      let p;
-      try { p = voice.play(); } catch (e) { p = Promise.reject(e); }
-      Promise.resolve(p).then(() => {
-        if (settled) { stopVoice(false); return; }   // started too late: stay silent
-        settled = true; clearTimeout(waitTimer); start();
-      }, () => { clearTimeout(waitTimer); silent(); });
     }
 
     function stopVoice(fade) {
@@ -125,14 +142,16 @@ window.SR = window.SR || {};
       }, 20);
     }
 
+    // 3. The blur dissolves
     let revealed = false;
     function reveal(skipped) {
       if (revealed) return;
       revealed = true;
+      phase = 'done';
       clearTimeout(timer);
       stopVoice(skipped === true);
       document.removeEventListener('keydown', onKey, true);
-      root.removeEventListener('pointerdown', onSkip);
+      root.removeEventListener('click', onPress);
       root.style.pointerEvents = 'none';
       if (skipped) {
         // Freeze whatever is on screen and fade it out quickly
@@ -163,15 +182,22 @@ window.SR = window.SR || {};
       running = false;
     }
 
+    // A click/tap (the "click" event is what phones accept for sound) or a key starts it; later ones skip
+    function onPress(e) {
+      e.preventDefault();
+      if (phase === 'logo') begin(); else if (phase === 'words') reveal(true);
+    }
     function onKey(e) {
       if (e.ctrlKey || e.metaKey || e.altKey || e.key === 'Tab') return;
       e.preventDefault();
       e.stopPropagation();
-      reveal(true);
+      if (phase === 'logo' && e.key !== 'Escape') begin();
+      else reveal(true);
     }
-    function onSkip() { reveal(true); }
     document.addEventListener('keydown', onKey, true);
-    root.addEventListener('pointerdown', onSkip);
+    root.addEventListener('click', onPress);
+
+    if (opts && opts.instant) begin();
   }
 
   if (settings().intro === false) finished = true;
