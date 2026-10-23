@@ -1534,12 +1534,15 @@
     let locked, relaxed, s = 1;
     if (on) {
       // Lay the page out at computer width and zoom out so all of it fits the screen
-      s = Math.min(1, +(Math.max(screen.width, screen.height) / PC_WIDTH).toFixed(4));
-      relaxed = 'width=' + PC_WIDTH + ', initial-scale=' + s + ', minimum-scale=' + s + ', viewport-fit=cover';
-      locked = relaxed.replace(', viewport-fit', ', maximum-scale=' + s + ', viewport-fit');
+      // The width the phone really shows sideways (Safari already leaves out the notch)
+      let w = document.documentElement.clientWidth;
+      if (w < document.documentElement.clientHeight) w = Math.max(screen.width, screen.height);
+      s = Math.min(1, +(w / PC_WIDTH).toFixed(4));
+      relaxed = 'width=' + PC_WIDTH + ', initial-scale=' + s + ', minimum-scale=' + s + ', interactive-widget=resizes-content';
+      locked = relaxed + ', maximum-scale=' + s;
     } else {
       relaxed = VIEWPORT_DEFAULT;
-      locked = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover';
+      locked = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, interactive-widget=resizes-content';
     }
     // Lock the zoom until the browser has applied it, then allow pinch-zoom again
     clearInterval(vpTimer);
