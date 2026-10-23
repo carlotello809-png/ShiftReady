@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ShiftReady · Support Chat Simulator</title>
+  <meta name="description" content="Practice live chat customer support: multiple customers at once, real policies, scored shifts.">
+  <meta name="theme-color" content="#0f2438">
+  <script>
+    /* Apply the saved theme before the first paint (no flash) */
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('shiftready.v1')) || {};
+        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) { /* storage unavailable */ }
+    })();
+  </script>
+  <link rel="icon" type="image/png" href="assets/img/favicon-64.png">
+  <link rel="preload" as="image" href="assets/img/logo-768.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+  <div id="app"></div>
+  <noscript>ShiftReady needs JavaScript to run.</noscript>
+
+  <script src="assets/js/sounds.js"></script>
+  <script src="assets/js/boot.js"></script>
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data/company.js"></script>
+  <script src="assets/js/data/day1.js"></script>
+  <script src="assets/js/data/day2.js"></script>
+  <script src="assets/js/data/day3.js"></script>
+  <script src="assets/js/data/day4.js"></script>
+  <script src="assets/js/data/day5.js"></script>
+  <script src="assets/js/data/products.js"></script>
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/js/ui.js"></script>
+</body>
+</html>
