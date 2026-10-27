@@ -1,0 +1,2718 @@
+{
+  "about": "Huella del comportamiento del motor (tests/golden.test.js). Regenerar solo si el cambio es intencional.",
+  "seed": 20261102,
+  "runs": {
+    "day1/best": {
+      "report": {
+        "score": 100,
+        "stars": 3,
+        "passed": true,
+        "n": 3,
+        "resolved": 3,
+        "abandoned": 0,
+        "avgCsat": 5,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 0,
+        "art": 0,
+        "duration": 134100
+      },
+      "convs": {
+        "d1-daniel": {
+          "path": [
+            "start",
+            "tracking",
+            "why",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d1-priya": {
+          "path": [
+            "start",
+            "verified",
+            "reason",
+            "code",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "cancellation"
+          ],
+          "dispOk": true
+        },
+        "d1-marcus": {
+          "path": [
+            "start",
+            "verify",
+            "new_addr",
+            "ship",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "order-change"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "98b6903fcd7f3814d1ea39ad23fb618c47f4b5859250f313754bc320844232aa",
+      "errors": 0
+    },
+    "day1/worst": {
+      "report": {
+        "score": 28,
+        "stars": 0,
+        "passed": false,
+        "n": 3,
+        "resolved": 3,
+        "abandoned": 0,
+        "avgCsat": 1.333333,
+        "acc": 0.295455,
+        "wrap": 0,
+        "frt": 0,
+        "art": 0,
+        "duration": 258800
+      },
+      "convs": {
+        "d1-daniel": {
+          "path": [
+            "start",
+            "start",
+            "tracking",
+            "tracking",
+            "tracking",
+            "why",
+            "why",
+            "close",
+            "end_cold"
+          ],
+          "q": [
+            0,
+            1,
+            0,
+            1,
+            2,
+            0,
+            1,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.25,
+          "patience": 52.73,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": false
+        },
+        "d1-priya": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "verified",
+            "verified",
+            "reason",
+            "reason",
+            "reason",
+            "code",
+            "code",
+            "close",
+            "end_cold"
+          ],
+          "q": [
+            0,
+            1,
+            2,
+            0,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.30303,
+          "patience": 50.505,
+          "correctDisp": [
+            "cancellation"
+          ],
+          "dispOk": false
+        },
+        "d1-marcus": {
+          "path": [
+            "start",
+            "start",
+            "addr_first",
+            "addr_first",
+            "verify_late",
+            "ship",
+            "ship",
+            "close",
+            "end_cold"
+          ],
+          "q": [
+            0,
+            1,
+            0,
+            3,
+            1,
+            0,
+            2,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.333333,
+          "patience": 66.64,
+          "correctDisp": [
+            "order-change"
+          ],
+          "dispOk": false
+        }
+      },
+      "trace": "500ecf9ff08c36a35fe42486a9d625dde5bb850502b1330dd88b9514df2283b1",
+      "errors": 0
+    },
+    "day1/slow": {
+      "report": {
+        "score": 100,
+        "stars": 3,
+        "passed": true,
+        "n": 3,
+        "resolved": 3,
+        "abandoned": 0,
+        "avgCsat": 5,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 20000,
+        "art": 20000,
+        "duration": 231700
+      },
+      "convs": {
+        "d1-daniel": {
+          "path": [
+            "start",
+            "tracking",
+            "why",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d1-priya": {
+          "path": [
+            "start",
+            "verified",
+            "reason",
+            "code",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "cancellation"
+          ],
+          "dispOk": true
+        },
+        "d1-marcus": {
+          "path": [
+            "start",
+            "verify",
+            "new_addr",
+            "ship",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "order-change"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "d35e1c7694f96b80f11e06b12fcf1e2bdb965987e555155071664ec1bee54870",
+      "errors": 0
+    },
+    "day1/idle": {
+      "report": {
+        "score": 10,
+        "stars": 0,
+        "passed": false,
+        "n": 3,
+        "resolved": 0,
+        "abandoned": 3,
+        "avgCsat": 1,
+        "acc": 0,
+        "wrap": 1,
+        "frt": null,
+        "art": null,
+        "duration": 306500
+      },
+      "convs": {
+        "d1-daniel": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d1-priya": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d1-marcus": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "bcd487dc04366581ec9a797050a9846f8d4d33949151a5fe9d24e92a2d190e18",
+      "errors": 0
+    },
+    "day2/best": {
+      "report": {
+        "score": 100,
+        "stars": 3,
+        "passed": true,
+        "n": 4,
+        "resolved": 4,
+        "abandoned": 0,
+        "avgCsat": 5,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 0,
+        "art": 0,
+        "duration": 212700
+      },
+      "convs": {
+        "d2-sofia": {
+          "path": [
+            "start",
+            "stock",
+            "choice",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "return-exchange"
+          ],
+          "dispOk": true
+        },
+        "d2-kevin": {
+          "path": [
+            "start",
+            "why",
+            "happy",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "promo"
+          ],
+          "dispOk": true
+        },
+        "d2-grace": {
+          "path": [
+            "start",
+            "options",
+            "replace",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "replacement"
+          ],
+          "dispOk": true
+        },
+        "d2-harold": {
+          "path": [
+            "start",
+            "verified",
+            "link",
+            "done",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "account"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "2c94183d7a51c6845fa45fd4d201afcd9c07251e61a04bef2660004af631c3f9",
+      "errors": 0
+    },
+    "day2/worst": {
+      "report": {
+        "score": 22,
+        "stars": 0,
+        "passed": false,
+        "n": 4,
+        "resolved": 3,
+        "abandoned": 0,
+        "avgCsat": 1.25,
+        "acc": 0.269444,
+        "wrap": 0,
+        "frt": 0,
+        "art": 0,
+        "duration": 386100
+      },
+      "convs": {
+        "d2-sofia": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "stock",
+            "stock",
+            "other",
+            "end_refund"
+          ],
+          "q": [
+            0,
+            0,
+            2,
+            0,
+            1,
+            0
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.166667,
+          "patience": 52.7525,
+          "correctDisp": [
+            "return-exchange"
+          ],
+          "dispOk": false
+        },
+        "d2-kevin": {
+          "path": [
+            "start",
+            "start",
+            "why",
+            "why",
+            "why",
+            "meh",
+            "lost"
+          ],
+          "q": [
+            1,
+            2,
+            0,
+            0,
+            2,
+            0
+          ],
+          "outcome": "unresolved",
+          "csat": 1,
+          "accuracy": 0.277778,
+          "patience": 68.725,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": false
+        },
+        "d2-grace": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "options",
+            "options",
+            "options",
+            "replace",
+            "replace",
+            "replace",
+            "close",
+            "end_short"
+          ],
+          "q": [
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            0,
+            2,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.3,
+          "patience": 54.5875,
+          "correctDisp": [
+            "replacement"
+          ],
+          "dispOk": false
+        },
+        "d2-harold": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "more",
+            "more",
+            "verified",
+            "verified",
+            "link",
+            "link",
+            "done",
+            "end_cold"
+          ],
+          "q": [
+            0,
+            1,
+            2,
+            0,
+            3,
+            0,
+            2,
+            0,
+            1,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.333333,
+          "patience": 59.5875,
+          "correctDisp": [
+            "account"
+          ],
+          "dispOk": false
+        }
+      },
+      "trace": "d310cf8213d7bc78cfbbf1bdb224571bf2f58d09a1a99755bafc773bbd166f19",
+      "errors": 0
+    },
+    "day2/slow": {
+      "report": {
+        "score": 100,
+        "stars": 3,
+        "passed": true,
+        "n": 4,
+        "resolved": 4,
+        "abandoned": 0,
+        "avgCsat": 5,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 20000,
+        "art": 20000,
+        "duration": 295900
+      },
+      "convs": {
+        "d2-sofia": {
+          "path": [
+            "start",
+            "stock",
+            "choice",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "return-exchange"
+          ],
+          "dispOk": true
+        },
+        "d2-kevin": {
+          "path": [
+            "start",
+            "why",
+            "happy",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 88.54375,
+          "correctDisp": [
+            "promo"
+          ],
+          "dispOk": true
+        },
+        "d2-grace": {
+          "path": [
+            "start",
+            "options",
+            "replace",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "replacement"
+          ],
+          "dispOk": true
+        },
+        "d2-harold": {
+          "path": [
+            "start",
+            "verified",
+            "link",
+            "done",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "account"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "0752805e3ec9c875d8ce2c96d0514d7c74241714ba1a2f8cb1c4b60bdfe78b57",
+      "errors": 0
+    },
+    "day2/idle": {
+      "report": {
+        "score": 10,
+        "stars": 0,
+        "passed": false,
+        "n": 4,
+        "resolved": 0,
+        "abandoned": 4,
+        "avgCsat": 1,
+        "acc": 0,
+        "wrap": 1,
+        "frt": null,
+        "art": null,
+        "duration": 336100
+      },
+      "convs": {
+        "d2-sofia": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d2-kevin": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d2-grace": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d2-harold": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "21b44a5e2af49c194f9d9520584fc9997c728c5b2d76066faab368269de4b82c",
+      "errors": 0
+    },
+    "day3/best": {
+      "report": {
+        "score": 100,
+        "stars": 3,
+        "passed": true,
+        "n": 5,
+        "resolved": 5,
+        "abandoned": 0,
+        "avgCsat": 5,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 0,
+        "art": 0,
+        "duration": 150000
+      },
+      "convs": {
+        "d3-aisha": {
+          "path": [
+            "start",
+            "checked",
+            "push",
+            "accept",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d3-robert": {
+          "path": [
+            "start",
+            "detail",
+            "worried",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": true
+        },
+        "d3-emily": {
+          "path": [
+            "start",
+            "status",
+            "amount",
+            "upset",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": true
+        },
+        "d3-tom": {
+          "path": [
+            "start",
+            "how",
+            "match",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "refund"
+          ],
+          "dispOk": true
+        },
+        "d3-natalie": {
+          "path": [
+            "start",
+            "compare",
+            "decide",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "product-info"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "17c5936893b8dbf74b9f3e87cfe4034e0a1c6ba9f99ca67f6c9cf9b8254e5cb6",
+      "errors": 0
+    },
+    "day3/worst": {
+      "report": {
+        "score": 28,
+        "stars": 0,
+        "passed": false,
+        "n": 5,
+        "resolved": 5,
+        "abandoned": 0,
+        "avgCsat": 1.4,
+        "acc": 0.282804,
+        "wrap": 0,
+        "frt": 0,
+        "art": 0,
+        "duration": 249000
+      },
+      "convs": {
+        "d3-aisha": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "checked",
+            "checked",
+            "checked",
+            "push",
+            "push",
+            "cold",
+            "end_meh"
+          ],
+          "q": [
+            0,
+            0,
+            2,
+            0,
+            0,
+            2,
+            0,
+            1,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.222222,
+          "patience": 41.1,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": false
+        },
+        "d3-robert": {
+          "path": [
+            "start",
+            "start",
+            "detail",
+            "detail",
+            "worried",
+            "worried",
+            "close",
+            "end_cold"
+          ],
+          "q": [
+            1,
+            2,
+            0,
+            1,
+            0,
+            2,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.333333,
+          "patience": 72.6,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": false
+        },
+        "d3-emily": {
+          "path": [
+            "start",
+            "start",
+            "status",
+            "status",
+            "amount",
+            "amount",
+            "upset",
+            "rude"
+          ],
+          "q": [
+            0,
+            2,
+            0,
+            2,
+            0,
+            1,
+            0
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.238095,
+          "patience": 57.3,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": false
+        },
+        "d3-tom": {
+          "path": [
+            "start",
+            "start",
+            "check",
+            "check",
+            "how",
+            "how",
+            "match",
+            "match",
+            "close",
+            "end_short"
+          ],
+          "q": [
+            0,
+            2,
+            0,
+            3,
+            0,
+            2,
+            0,
+            2,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.37037,
+          "patience": 72.46,
+          "correctDisp": [
+            "refund"
+          ],
+          "dispOk": false
+        },
+        "d3-natalie": {
+          "path": [
+            "start",
+            "start",
+            "compare",
+            "compare",
+            "compare",
+            "decide",
+            "decide",
+            "close",
+            "end"
+          ],
+          "q": [
+            0,
+            1,
+            0,
+            0,
+            1,
+            0,
+            2,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.25,
+          "patience": 53.52,
+          "correctDisp": [
+            "product-info"
+          ],
+          "dispOk": false
+        }
+      },
+      "trace": "090ecd9f0dd13cb4af59cea2eb2701d785f46edf0eac9c516612702ba938fc89",
+      "errors": 0
+    },
+    "day3/slow": {
+      "report": {
+        "score": 96,
+        "stars": 3,
+        "passed": true,
+        "n": 5,
+        "resolved": 5,
+        "abandoned": 0,
+        "avgCsat": 4.6,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 20000,
+        "art": 20000,
+        "duration": 231500
+      },
+      "convs": {
+        "d3-aisha": {
+          "path": [
+            "start",
+            "checked",
+            "push",
+            "accept",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 4,
+          "accuracy": 1,
+          "patience": 59.6,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d3-robert": {
+          "path": [
+            "start",
+            "detail",
+            "worried",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 75.68,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": true
+        },
+        "d3-emily": {
+          "path": [
+            "start",
+            "status",
+            "amount",
+            "upset",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 4,
+          "accuracy": 1,
+          "patience": 59.6,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": true
+        },
+        "d3-tom": {
+          "path": [
+            "start",
+            "how",
+            "match",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 91.76,
+          "correctDisp": [
+            "refund"
+          ],
+          "dispOk": true
+        },
+        "d3-natalie": {
+          "path": [
+            "start",
+            "compare",
+            "decide",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 91.76,
+          "correctDisp": [
+            "product-info"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "ecc6873d6c27a3b269c2e49331feb0aa0d65bc953d992f35872c2ec8b0d2d747",
+      "errors": 0
+    },
+    "day3/idle": {
+      "report": {
+        "score": 10,
+        "stars": 0,
+        "passed": false,
+        "n": 5,
+        "resolved": 0,
+        "abandoned": 5,
+        "avgCsat": 1,
+        "acc": 0,
+        "wrap": 1,
+        "frt": null,
+        "art": null,
+        "duration": 231800
+      },
+      "convs": {
+        "d3-aisha": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d3-robert": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d3-emily": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d3-tom": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d3-natalie": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "62dd18fc229f9575994e3dec0ed72a6de9d2577a8aff4e266a4f869f32a00ecf",
+      "errors": 0
+    },
+    "day4/best": {
+      "report": {
+        "score": 100,
+        "stars": 3,
+        "passed": true,
+        "n": 6,
+        "resolved": 6,
+        "abandoned": 0,
+        "avgCsat": 5,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 0,
+        "art": 0,
+        "duration": 183500
+      },
+      "convs": {
+        "d4-brandon": {
+          "path": [
+            "start",
+            "where",
+            "fee",
+            "calm",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "refund",
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d4-linda": {
+          "path": [
+            "start",
+            "reason",
+            "angry",
+            "esc",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": true
+        },
+        "d4-jamal": {
+          "path": [
+            "start",
+            "cancel",
+            "insist",
+            "done",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "membership",
+            "refund"
+          ],
+          "dispOk": true
+        },
+        "d4-chloe": {
+          "path": [
+            "start",
+            "ship",
+            "return",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "replacement"
+          ],
+          "dispOk": true
+        },
+        "d4-victor": {
+          "path": [
+            "start",
+            "version",
+            "updated",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "tech-support",
+            "product-info"
+          ],
+          "dispOk": true
+        },
+        "d4-olivia": {
+          "path": [
+            "start",
+            "verify",
+            "order",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "escalated",
+            "account"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "6e53629fe945f12daf9fc5bc1727ac3e2e4dab4cf7fa8c20720c2ad5ff4e2b14",
+      "errors": 0
+    },
+    "day4/worst": {
+      "report": {
+        "score": 33,
+        "stars": 0,
+        "passed": false,
+        "n": 6,
+        "resolved": 6,
+        "abandoned": 0,
+        "avgCsat": 1.666667,
+        "acc": 0.354658,
+        "wrap": 0,
+        "frt": 0,
+        "art": 0,
+        "duration": 318000
+      },
+      "convs": {
+        "d4-brandon": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "where",
+            "where",
+            "fee",
+            "fee",
+            "fee",
+            "calm",
+            "close_meh",
+            "end_cold"
+          ],
+          "q": [
+            0,
+            1,
+            2,
+            0,
+            1,
+            0,
+            0,
+            2,
+            1,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.266667,
+          "patience": 17.09,
+          "correctDisp": [
+            "refund",
+            "order-status"
+          ],
+          "dispOk": false
+        },
+        "d4-linda": {
+          "path": [
+            "start",
+            "start",
+            "reason",
+            "reason",
+            "reason",
+            "angry",
+            "angry",
+            "angry",
+            "esc",
+            "end_cold"
+          ],
+          "q": [
+            0,
+            2,
+            0,
+            0,
+            2,
+            0,
+            1,
+            2,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.296296,
+          "patience": 33.181,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": false
+        },
+        "d4-jamal": {
+          "path": [
+            "start",
+            "start",
+            "cancel",
+            "cancel",
+            "insist",
+            "insist",
+            "insist",
+            "done",
+            "done",
+            "end"
+          ],
+          "q": [
+            0,
+            2,
+            0,
+            1,
+            0,
+            1,
+            3,
+            0,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.333333,
+          "patience": 63.2125,
+          "correctDisp": [
+            "membership",
+            "refund"
+          ],
+          "dispOk": false
+        },
+        "d4-chloe": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "look",
+            "look",
+            "ship",
+            "ship",
+            "ship",
+            "return",
+            "return",
+            "close",
+            "end_short"
+          ],
+          "q": [
+            0,
+            0,
+            2,
+            0,
+            3,
+            0,
+            1,
+            3,
+            1,
+            2,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.424242,
+          "patience": 78.23,
+          "correctDisp": [
+            "replacement"
+          ],
+          "dispOk": false
+        },
+        "d4-victor": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "version",
+            "version",
+            "version",
+            "updated",
+            "updated",
+            "close",
+            "end"
+          ],
+          "q": [
+            0,
+            1,
+            2,
+            0,
+            1,
+            3,
+            0,
+            2,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.407407,
+          "patience": 80.37,
+          "correctDisp": [
+            "tech-support",
+            "product-info"
+          ],
+          "dispOk": false
+        },
+        "d4-olivia": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "start",
+            "verify",
+            "verify",
+            "order",
+            "order",
+            "order",
+            "close",
+            "end"
+          ],
+          "q": [
+            0,
+            1,
+            1,
+            3,
+            0,
+            2,
+            0,
+            1,
+            2,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.4,
+          "patience": 76.16,
+          "correctDisp": [
+            "escalated",
+            "account"
+          ],
+          "dispOk": false
+        }
+      },
+      "trace": "ef74979705c8283ca46ba34f7680d342bccd430d26045a03b36b9e3fd1286754",
+      "errors": 0
+    },
+    "day4/slow": {
+      "report": {
+        "score": 96,
+        "stars": 3,
+        "passed": true,
+        "n": 6,
+        "resolved": 6,
+        "abandoned": 0,
+        "avgCsat": 4.666667,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 20000,
+        "art": 20000,
+        "duration": 258100
+      },
+      "convs": {
+        "d4-brandon": {
+          "path": [
+            "start",
+            "where",
+            "fee",
+            "calm",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 4,
+          "accuracy": 1,
+          "patience": 30.545,
+          "correctDisp": [
+            "refund",
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d4-linda": {
+          "path": [
+            "start",
+            "reason",
+            "angry",
+            "esc",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 4,
+          "accuracy": 1,
+          "patience": 41.836,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": true
+        },
+        "d4-jamal": {
+          "path": [
+            "start",
+            "cancel",
+            "insist",
+            "done",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 69.65,
+          "correctDisp": [
+            "membership",
+            "refund"
+          ],
+          "dispOk": true
+        },
+        "d4-chloe": {
+          "path": [
+            "start",
+            "ship",
+            "return",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 83.72,
+          "correctDisp": [
+            "replacement"
+          ],
+          "dispOk": true
+        },
+        "d4-victor": {
+          "path": [
+            "start",
+            "version",
+            "updated",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 83.72,
+          "correctDisp": [
+            "tech-support",
+            "product-info"
+          ],
+          "dispOk": true
+        },
+        "d4-olivia": {
+          "path": [
+            "start",
+            "verify",
+            "order",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 72.464,
+          "correctDisp": [
+            "escalated",
+            "account"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "16b8d2b426a8a2931cb1c1cea596a69fe0e259a9d444fd962cf2e17b82148b88",
+      "errors": 0
+    },
+    "day4/idle": {
+      "report": {
+        "score": 10,
+        "stars": 0,
+        "passed": false,
+        "n": 6,
+        "resolved": 0,
+        "abandoned": 6,
+        "avgCsat": 1,
+        "acc": 0,
+        "wrap": 1,
+        "frt": null,
+        "art": null,
+        "duration": 248500
+      },
+      "convs": {
+        "d4-brandon": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d4-linda": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d4-jamal": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d4-chloe": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d4-victor": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d4-olivia": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "77a5075c84457689acc4b2bba0bc1a6f624be17989c753ae951e23c4e67659b5",
+      "errors": 0
+    },
+    "day5/best": {
+      "report": {
+        "score": 100,
+        "stars": 3,
+        "passed": true,
+        "n": 7,
+        "resolved": 7,
+        "abandoned": 0,
+        "avgCsat": 5,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 0,
+        "art": 0,
+        "duration": 244900
+      },
+      "convs": {
+        "d5-michael": {
+          "path": [
+            "start",
+            "options",
+            "pref",
+            "final",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": true
+        },
+        "d5-hannah": {
+          "path": [
+            "start",
+            "unsure",
+            "paypal",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": true
+        },
+        "d5-samuel": {
+          "path": [
+            "start",
+            "details",
+            "tax",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "escalated",
+            "product-info"
+          ],
+          "dispOk": true
+        },
+        "d5-patricia": {
+          "path": [
+            "start",
+            "safe",
+            "refund",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": true
+        },
+        "d5-kyle": {
+          "path": [
+            "start",
+            "insult",
+            "apology",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d5-megan": {
+          "path": [
+            "start",
+            "why",
+            "cost",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d5-ethan": {
+          "path": [
+            "start",
+            "code",
+            "price",
+            "notify",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 100,
+          "correctDisp": [
+            "return-exchange"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "388b3350a289343afb19c13c50c8eeebf5c8abd56736fe313e5dbcf243996652",
+      "errors": 0
+    },
+    "day5/worst": {
+      "report": {
+        "score": 31,
+        "stars": 0,
+        "passed": false,
+        "n": 7,
+        "resolved": 6,
+        "abandoned": 0,
+        "avgCsat": 1.714286,
+        "acc": 0.346088,
+        "wrap": 0,
+        "frt": 0,
+        "art": 0,
+        "duration": 344600
+      },
+      "convs": {
+        "d5-michael": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "options",
+            "options",
+            "options",
+            "pref",
+            "pref",
+            "final_cold",
+            "end_cold"
+          ],
+          "q": [
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            1
+          ],
+          "outcome": "resolved",
+          "csat": 1,
+          "accuracy": 0.296296,
+          "patience": 23.0055,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": false
+        },
+        "d5-hannah": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "unsure",
+            "unsure",
+            "paypal",
+            "paypal",
+            "close",
+            "end"
+          ],
+          "q": [
+            0,
+            0,
+            1,
+            0,
+            2,
+            0,
+            2,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.291667,
+          "patience": 62.49,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": false
+        },
+        "d5-samuel": {
+          "path": [
+            "start",
+            "start",
+            "details",
+            "details",
+            "tax",
+            "tax",
+            "close",
+            "end"
+          ],
+          "q": [
+            0,
+            2,
+            0,
+            1,
+            0,
+            2,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.333333,
+          "patience": 74.55375,
+          "correctDisp": [
+            "escalated",
+            "product-info"
+          ],
+          "dispOk": false
+        },
+        "d5-patricia": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "safe",
+            "safe",
+            "safe",
+            "refund",
+            "refund",
+            "close",
+            "end"
+          ],
+          "q": [
+            0,
+            1,
+            3,
+            0,
+            0,
+            2,
+            0,
+            2,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.37037,
+          "patience": 72.082,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": false
+        },
+        "d5-kyle": {
+          "path": [
+            "start",
+            "start",
+            "start",
+            "insult",
+            "fight"
+          ],
+          "q": [
+            1,
+            1,
+            3,
+            0
+          ],
+          "outcome": "unresolved",
+          "csat": 1,
+          "accuracy": 0.416667,
+          "patience": 51.558,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": false
+        },
+        "d5-megan": {
+          "path": [
+            "start",
+            "start",
+            "split",
+            "split",
+            "why",
+            "cost",
+            "cost",
+            "end"
+          ],
+          "q": [
+            0,
+            2,
+            0,
+            3,
+            1,
+            0,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.380952,
+          "patience": 79.405,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": false
+        },
+        "d5-ethan": {
+          "path": [
+            "start",
+            "start",
+            "code",
+            "code",
+            "price",
+            "price",
+            "notify",
+            "notify",
+            "end"
+          ],
+          "q": [
+            0,
+            2,
+            0,
+            2,
+            0,
+            2,
+            0,
+            2
+          ],
+          "outcome": "resolved",
+          "csat": 2,
+          "accuracy": 0.333333,
+          "patience": 71.49,
+          "correctDisp": [
+            "return-exchange"
+          ],
+          "dispOk": false
+        }
+      },
+      "trace": "a82aa6ccf795bca35b818ec18fee014e3671dc52535794db87ce4944a0bf661a",
+      "errors": 0
+    },
+    "day5/slow": {
+      "report": {
+        "score": 95,
+        "stars": 3,
+        "passed": true,
+        "n": 7,
+        "resolved": 7,
+        "abandoned": 0,
+        "avgCsat": 4.571429,
+        "acc": 1,
+        "wrap": 1,
+        "frt": 20000,
+        "art": 20000,
+        "duration": 326600
+      },
+      "convs": {
+        "d5-michael": {
+          "path": [
+            "start",
+            "options",
+            "pref",
+            "final",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 4,
+          "accuracy": 1,
+          "patience": 17.158,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": true
+        },
+        "d5-hannah": {
+          "path": [
+            "start",
+            "unsure",
+            "paypal",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 88.745,
+          "correctDisp": [
+            "billing"
+          ],
+          "dispOk": true
+        },
+        "d5-samuel": {
+          "path": [
+            "start",
+            "details",
+            "tax",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 88.745,
+          "correctDisp": [
+            "escalated",
+            "product-info"
+          ],
+          "dispOk": true
+        },
+        "d5-patricia": {
+          "path": [
+            "start",
+            "safe",
+            "refund",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 4,
+          "accuracy": 1,
+          "patience": 57.992,
+          "correctDisp": [
+            "escalated"
+          ],
+          "dispOk": true
+        },
+        "d5-kyle": {
+          "path": [
+            "start",
+            "insult",
+            "apology",
+            "close",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 4,
+          "accuracy": 1,
+          "patience": 13.158,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d5-megan": {
+          "path": [
+            "start",
+            "why",
+            "cost",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 78.745,
+          "correctDisp": [
+            "order-status"
+          ],
+          "dispOk": true
+        },
+        "d5-ethan": {
+          "path": [
+            "start",
+            "code",
+            "price",
+            "notify",
+            "end"
+          ],
+          "q": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "outcome": "resolved",
+          "csat": 5,
+          "accuracy": 1,
+          "patience": 88.745,
+          "correctDisp": [
+            "return-exchange"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "c2fe2fa32307c6288c4ddc675a29ff4f8aa6f645d8de18ec1925724331a31bcb",
+      "errors": 0
+    },
+    "day5/idle": {
+      "report": {
+        "score": 10,
+        "stars": 0,
+        "passed": false,
+        "n": 7,
+        "resolved": 0,
+        "abandoned": 7,
+        "avgCsat": 1,
+        "acc": 0,
+        "wrap": 1,
+        "frt": null,
+        "art": null,
+        "duration": 302700
+      },
+      "convs": {
+        "d5-michael": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d5-hannah": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d5-samuel": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d5-patricia": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d5-kyle": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d5-megan": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        },
+        "d5-ethan": {
+          "path": [
+            "start"
+          ],
+          "q": [],
+          "outcome": "abandoned",
+          "csat": 1,
+          "accuracy": 0,
+          "patience": 0,
+          "correctDisp": [
+            "no-resolution"
+          ],
+          "dispOk": true
+        }
+      },
+      "trace": "34fd9dbf00d91929f3830eb1a6531e2461f613074dfd4004071a4fe2f43d3124",
+      "errors": 0
+    }
+  }
+}
