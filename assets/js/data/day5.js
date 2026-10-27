@@ -78,14 +78,14 @@ SR.scenario({
       c: ["…fine. 24 hours. If I don't hear back I'm calling the bank."],
       o: [
         { q: 3, t: "That's fair. You'll hear from a supervisor by this time tomorrow at the latest. I'm sorry again for the experience, Michael. Is there anything else I can help with?", go: 'end', fb: 'Accepts his condition, restates the deadline and apologizes sincerely.' },
-        { q: 2, t: 'Understood. Anything else?', go: 'end', fb: 'OK. A sincere apology fits a 3rd contact.' }
+        { q: 2, t: "Understood, Michael — that's completely fair. Your case is with a supervisor now and they'll be in touch by email within the next 24 hours. Is there anything else I can help you with today?", go: 'end', fb: 'OK. A sincere apology fits a 3rd contact.' }
       ]
     },
     final_cold: {
       c: ['Whatever. Just get it done.'],
       o: [
         { q: 3, t: "Absolutely. Case ESC-55190 is marked urgent, and a supervisor will contact you within 24 hours to process your refund. I'm sorry again for the experience.", go: 'end', fb: 'Recovers with a clear commitment.' },
-        { q: 1, t: 'Ok.', go: 'end_cold', fb: "He needs a firm commitment, not 'ok'." }
+        { q: 1, t: 'Okay, will do. Someone from the team should be in touch with you soon about the refund, so keep an eye on your email over the next few days.', go: 'end_cold', fb: "He needs a firm commitment, not 'ok'." }
       ]
     },
     end: { c: ['No. Just get it done, please.'], end: 'resolved' },
@@ -148,14 +148,14 @@ SR.scenario({
         { q: 3, t: "Hi Hannah! I see the refund of $118.16 was processed yesterday to your Visa ending in 7741. Sorry about the lost card! Refunds can only go back to the original payment method, but don't worry — when a card is closed, your bank automatically sends the refund to your new card or account once it arrives.", go: 'unsure', fb: 'Accurate, reassuring, and explains what will actually happen to her money.' },
         { q: 0, t: "Sure! Just send me the new card number and I'll redirect the refund.", retry: true, r: ['Ok… do you need the whole number here in the chat?'], fb: "Never ask for card numbers in chat — and refunds can't be redirected to a different card." },
         { q: 1, t: 'Sorry, we can only refund to the original card.', go: 'unsure', r: ['So… my money is just gone?? 😟'], fb: 'Correct but incomplete. Explain that the bank redirects refunds for closed cards.' },
-        { q: 0, t: "No problem — I'll cancel that refund and send it as store credit instead.", retry: true, r: ["Oh, can you? Wait, isn't it already processed?"], fb: "The refund was already processed — it can't be pulled back. Her bank will route it to her new card." }
+        { q: 0, t: "Hi Hannah, sorry to hear about the lost card — that's such a hassle! No problem: since that Visa was cancelled, I'll cancel the $118.16 refund that went to it and send the money to you as Lumen & Co. store credit instead, so you can use it on your next order. It'll be in your account today.", retry: true, r: ["Oh, can you? Wait, isn't it already processed?"], fb: "The refund was already processed — it can't be pulled back. Her bank will route it to her new card." }
       ]
     },
     unsure: {
       c: ['Are you sure the bank will do that? What if they don\'t?'],
       o: [
         { q: 3, t: "It's very standard — the refund is tied to your account with the bank, not the plastic card. If you don't see it by Nov 16, contact your bank with the refund reference RF-23041 and they can trace it. And if they can't find it, message us and we'll help investigate.", go: 'paypal', fb: 'Explains why, gives a "by" date and the reference, plus a safety net.' },
-        { q: 0, t: "If they don't, we'll just send it again to your new card.", retry: true, r: ['Oh, so you CAN send it to the new card? Why not just do that now then?'], fb: "Don't promise a duplicate refund. The refund reference lets her bank trace it." },
+        { q: 0, t: "It almost always works, Hannah, so I wouldn't worry. And if for some reason your bank doesn't pass it on to the new card, just message us and we'll simply send the $118.16 again directly to your new card, so either way you'll get your money back for sure.", retry: true, r: ['Oh, so you CAN send it to the new card? Why not just do that now then?'], fb: "Don't promise a duplicate refund. The refund reference lets her bank trace it." },
         { q: 2, t: "Yes, banks do that. Contact them if you don't see it within 7 business days.", go: 'paypal', fb: 'Give her the refund reference (RF-23041) so the bank can trace it quickly.' }
       ]
     },
@@ -163,7 +163,7 @@ SR.scenario({
       c: ['Ok. And for future orders, can I add PayPal to my account?'],
       o: [
         { q: 3, t: "Yes! In the app go to Account › Payment methods › Add PayPal. You'll be redirected to PayPal to sign in and confirm. For security I can't add it for you, but it only takes a minute.", go: 'close', fb: 'Clear steps and explains why you can\'t do it for her.' },
-        { q: 0, t: "Sure, send me your PayPal email and password and I'll set it up for you.", retry: true, r: ['My password?? 😳 Is that normal?'], fb: 'Never ask for passwords. Customers add payment methods themselves.' },
+        { q: 0, t: "Sure, PayPal is a great option! I can set it up for you from here so you don't have to deal with the menus: just send me the email and password of your PayPal account, and I'll link it to your Lumen & Co. account in a minute.", retry: true, r: ['My password?? 😳 Is that normal?'], fb: 'Never ask for passwords. Customers add payment methods themselves.' },
         { q: 2, t: 'Yes, you can add it under Account › Payment methods.', go: 'close', fb: 'Correct and short.' }
       ]
     },
@@ -171,7 +171,7 @@ SR.scenario({
       c: ['Got it. Thanks for explaining everything!'],
       o: [
         { q: 3, t: "You're welcome, Hannah! Anything else I can help you with today?", go: 'end', fb: 'Proper close.' },
-        { q: 2, t: 'No problem, have a good day!', go: 'end', fb: "Fine — ask if there's anything else." }
+        { q: 2, t: "No problem at all, Hannah — I'm glad it's all clear now and that your refund will reach your new card. Have a good day!", go: 'end', fb: "Fine — ask if there's anything else." }
       ]
     },
     end: { c: ["Nope, that's all 😊"], end: 'resolved' }
@@ -216,7 +216,7 @@ SR.scenario({
       c: ["Good morning. I manage an office in Dallas and we're looking to buy 40 of the Ergo Mesh chairs.", 'Is there a discount for that quantity? And can we pay by invoice?'],
       o: [
         { q: 3, t: 'Good morning, Samuel — thanks for considering us! Orders of 20+ units are handled by our Lumen for Business team: they offer volume pricing and invoicing with net-30 terms. I can set up a referral so a specialist contacts you directly. Could I get your company name and the best email to reach you?', go: 'details', fb: 'Right team, explains the benefits, and offers a warm referral.' },
-        { q: 0, t: 'Sure! Just add 40 to your cart and use code WELCOME10 for 10% off.', retry: true, r: ['10% on 40 chairs? I was hoping for a proper business quote. And is that code even meant for this?'], fb: "WELCOME10 is for a first order only and isn't bulk pricing. 20+ units go to Lumen for Business." },
+        { q: 0, t: "Good morning, Samuel, and thanks for thinking of us for your office! For an order that size, the easiest way is to add the 40 Ergo Mesh chairs to your cart and use code WELCOME10 at checkout for 10% off. You can pay by card, and you'll get a confirmation email with a full receipt.", retry: true, r: ['10% on 40 chairs? I was hoping for a proper business quote. And is that code even meant for this?'], fb: "WELCOME10 is for a first order only and isn't bulk pricing. 20+ units go to Lumen for Business." },
         { q: 2, t: 'Hi! Bulk orders are handled by our business team. You can call them at 1-800-555-0199.', go: 'details', r: ["Can't you pass my details on to them? I'm between meetings."], fb: 'Right team — but a warm referral is better than making a busy customer call.' }
       ]
     },
@@ -224,7 +224,7 @@ SR.scenario({
       c: ['Ridgeline Offices — s.ortiz@ridgelineoffices.com', 'Also, do you actually have 40 in stock? We need them by the end of the month.'],
       o: [
         { q: 3, t: 'Thank you! Right now we have 9 in stock online, with 60 more expected on Nov 20. The Business team can reserve units from that restock, so they\'ll confirm whether all 40 can be delivered by the end of November. I\'ve added your deadline to the referral.', go: 'tax', fb: 'Honest stock info, uses the restock date, and records his deadline.' },
-        { q: 0, t: 'Yes, we have plenty in stock — no problem at all.', retry: true, r: ['Great — 40 though? The website only lets me add 9 to the cart.'], fb: "Stock shows 9 units online. Never confirm availability you can't see." },
+        { q: 0, t: "Thank you, Samuel — I've noted Ridgeline Offices and s.ortiz@ridgelineoffices.com for the referral. And yes, we have plenty of the Ergo Mesh chairs in stock, so 40 is no problem at all and they'll easily arrive before the end of the month.", retry: true, r: ['Great — 40 though? The website only lets me add 9 to the cart.'], fb: "Stock shows 9 units online. Never confirm availability you can't see." },
         { q: 1, t: 'No, we only have 9.', go: 'tax', r: ["Hmm, that's a problem then…"], fb: 'Accurate, but mention the restock (60 units on Nov 20) and that the Business team can reserve them.' }
       ]
     },
@@ -232,7 +232,7 @@ SR.scenario({
       c: ["Ok, great. And we're tax-exempt — is that something they can handle?"],
       o: [
         { q: 3, t: 'Yes — the Business team handles tax-exempt purchases; just have your exemption certificate ready. I\'ve created referral BIZ-10442, and a specialist will email you at s.ortiz@ridgelineoffices.com within 1 business day.', go: 'close', fb: 'Complete: what to prepare, a reference, who contacts him and when.' },
-        { q: 0, t: "Sure, I'll remove the sales tax for you from here.", retry: true, r: ["From the chat? Don't you need our certificate?"], fb: "Agents can't apply tax exemptions — the Business team verifies the certificate." },
+        { q: 0, t: "Yes, no problem! Since Ridgeline Offices is tax-exempt, I'll remove the sales tax for you from here, so the specialist can send you a quote without it. I've added that note to your referral as well.", retry: true, r: ["From the chat? Don't you need our certificate?"], fb: "Agents can't apply tax exemptions — the Business team verifies the certificate." },
         { q: 2, t: "Yes, they can. They'll contact you within 1 business day.", go: 'close', fb: 'Correct. Mention the certificate and give a referral number.' }
       ]
     },
@@ -240,7 +240,7 @@ SR.scenario({
       c: ['Excellent. Thank you for your help.'],
       o: [
         { q: 3, t: 'My pleasure, Samuel. Is there anything else I can help you with today?', go: 'end', fb: 'Professional close.' },
-        { q: 2, t: 'You\'re welcome, have a great day.', go: 'end', fb: 'Fine.' }
+        { q: 2, t: "You're very welcome, Samuel — good luck with the new office setup, and have a great day!", go: 'end', fb: 'Fine.' }
       ]
     },
     end: { c: ["That's all. Have a good day."], end: 'resolved' }
@@ -289,7 +289,7 @@ SR.scenario({
       c: ['Hi, the space heater I bought from you just made a popping sound and there were sparks where the cord goes in!!', 'It smells like something burned'],
       o: [
         { q: 3, t: "Patricia, first — are you and everyone at home okay? Please unplug the heater if it's safe to do so (or switch off the breaker), keep it away from anything flammable, and don't use it again. If you see smoke or fire, call 911.", go: 'safe', fb: 'Safety first, always. Before anything else, make sure the customer is safe.' },
-        { q: 0, t: "I'm sorry to hear that! Would you like a return or an exchange?", retry: true, r: ["I don't know, I'm still shaking. Should I unplug it???"], fb: 'Safety comes before solutions. Give safety instructions immediately.' },
+        { q: 0, t: "I'm so sorry to hear that, Patricia — that sounds really frightening, and it should never happen with one of our products. I want to make this right for you straight away: would you prefer a full return for a refund, or an exchange for a brand-new heater?", retry: true, r: ["I don't know, I'm still shaking. Should I unplug it???"], fb: 'Safety comes before solutions. Give safety instructions immediately.' },
         { q: 1, t: 'Could you send a photo of the heater and the cord so I can take a look?', retry: true, r: ["A photo?? It just sparked, I'm scared to go near it!"], fb: "Photos can wait. First make sure she's safe and the device is unplugged." }
       ]
     },
@@ -297,7 +297,7 @@ SR.scenario({
       c: ["Yes, we're okay. I unplugged it from the wall.", "There's a black mark on the plug."],
       o: [
         { q: 3, t: "I'm so glad you're safe. I'm escalating this right now to our Product Safety team as an urgent case — they'll contact you within 4 hours. Please keep the heater and don't throw it away; they'll arrange a free pickup to investigate. You'll also receive a full refund.", go: 'refund', fb: 'Urgent escalation, timeline, keep the product, free pickup and refund — all per policy.' },
-        { q: 0, t: 'Please ship it back to us in the original box so we can inspect it.', retry: true, r: ["Ship it? I don't even want to touch it…"], fb: 'Never ask the customer to ship a hazardous item. Product Safety arranges the pickup.' },
+        { q: 0, t: "I'm so glad you're both okay, Patricia, and thank you for unplugging it. I'm escalating this to our Product Safety team right away. To help them investigate, please ship the heater back to us in its original box with the label we'll email you, and you'll get a full refund once it arrives.", retry: true, r: ["Ship it? I don't even want to touch it…"], fb: 'Never ask the customer to ship a hazardous item. Product Safety arranges the pickup.' },
         { q: 0, t: "It's probably a problem with your wall outlet, not the heater.", retry: true, r: ["My outlet?? It's the heater that sparked!"], fb: 'Never speculate about the cause or blame the customer. Escalate to Product Safety.' },
         { q: 2, t: "Thank you. I'm escalating this to our Product Safety team.", go: 'refund', fb: 'Correct. Tell her the timeline, to keep the heater, and that a refund is coming.' }
       ]
@@ -306,15 +306,15 @@ SR.scenario({
       c: ['Ok. Do I get my money back even though I bought it 3 weeks ago?'],
       o: [
         { q: 3, t: "Yes — for safety issues the return window doesn't matter. You'll get a full refund of $75.59 to your Discover card, and the safety team will confirm it when they contact you. Your case number is PS-77812.", go: 'close', fb: 'Exact amount, card and a case number.' },
-        { q: 0, t: "Unfortunately heaters only have a 15-day return window, so it's past that.", retry: true, r: ['What?! It almost caught fire!'], fb: 'Safety issues get a full refund regardless of the return window.' },
-        { q: 2, t: "Yes, you'll get a full refund.", go: 'close', fb: 'Correct. The amount and a case number would add confidence.' }
+        { q: 0, t: "I understand, and I'm sorry for the trouble. Unfortunately heaters only have a 15-day return window, and it's been 3 weeks since you bought it, so it's past that — but the Product Safety team will still contact you about the incident.", retry: true, r: ['What?! It almost caught fire!'], fb: 'Safety issues get a full refund regardless of the return window.' },
+        { q: 2, t: "Yes, absolutely, Patricia — for a safety issue like this the return window doesn't apply, so you'll get a full refund of what you paid. The Product Safety team will confirm everything with you when they get in touch.", go: 'close', fb: 'Correct. The amount and a case number would add confidence.' }
       ]
     },
     close: {
       c: ['Thank you. I was really scared.'],
       o: [
         { q: 3, t: "Of course — you did exactly the right thing. If you notice any smoke or the burning smell gets stronger, call 911 first. Our safety team will reach out within 4 hours. Is there anything else I can do for you?", go: 'end', fb: 'Empathetic, repeats the key safety instruction and closes properly.' },
-        { q: 2, t: 'I understand. The safety team will contact you soon. Anything else?', go: 'end', fb: 'Fine. Repeating the 911 instruction is a good safety habit.' }
+        { q: 2, t: 'Of course — you did exactly the right thing by unplugging it and contacting us so quickly. The Product Safety team will reach out to you within 4 hours. Is there anything else I can do for you?', go: 'end', fb: 'Fine. Repeating the 911 instruction is a good safety habit.' }
       ]
     },
     end: { c: ['No, thank you for helping me.'], end: 'resolved' }
@@ -365,7 +365,7 @@ SR.scenario({
       c: ['where the hell is my headset', 'you people are useless. ordered it on sunday'],
       o: [
         { q: 3, t: "Hi Kyle, I'm {agent} and I'll help you with your headset. I can see order LM-483002 — it shipped on Nov 3 with standard shipping, and the estimated delivery is Monday, Nov 9.", go: 'insult', fb: "Stays calm, doesn't react to the tone, and leads with facts." },
-        { q: 1, t: "Please don't speak to me like that or I'll end this chat.", retry: true, r: ['lol whatever. just tell me where it is'], fb: "Frustration isn't a personal insult yet — help first. Save the formal warning for direct insults." },
+        { q: 1, t: "Hi Kyle, I'm {agent}. I'm happy to look into your headset for you, but please don't speak to me like that — if the conversation stays like this, I'll have to end the chat. Once you're ready, I'll check your order.", retry: true, r: ['lol whatever. just tell me where it is'], fb: "Frustration isn't a personal insult yet — help first. Save the formal warning for direct insults." },
         { q: 1, t: 'Sorry for the wait! Let me check that for you.', retry: true, r: ['hurry up'], fb: "He wants answers fast. Lead with the facts — they're right there in the panel." }
       ]
     },
@@ -373,24 +373,24 @@ SR.scenario({
       c: ['MONDAY?? are you stupid or what?', 'I need it for a tournament this weekend'],
       o: [
         { q: 3, t: "I want to help you, Kyle, and I understand you're frustrated — but please keep the conversation respectful, or I'll have to end the chat. Now, let's see what we can do about the weekend.", go: 'apology', fb: 'Clear, respectful boundary (one warning, per policy), then back to solving.' },
-        { q: 0, t: "No, I'm not stupid — maybe read the shipping options next time.", go: 'fight', fb: 'Never respond to insults in kind. It is unprofessional and escalates the conflict.' },
+        { q: 0, t: "No, I'm not stupid, Kyle — I'm just reading what's on your order. You picked standard shipping at checkout, so Monday is what it says. Maybe read the shipping options next time if you need something by the weekend.", go: 'fight', fb: 'Never respond to insults in kind. It is unprofessional and escalates the conflict.' },
         { q: 1, t: 'Ok.', retry: true, r: ['ok WHAT?? can you make it faster or not'], fb: "Ignoring a direct insult isn't ideal — policy says give one respectful warning." },
-        { q: 0, t: 'This chat is being closed due to abusive language.', go: 'cut', fb: 'Too fast — policy says give ONE respectful warning before ending the chat.' }
+        { q: 0, t: "Kyle, calling me stupid is not acceptable, and Lumen & Co. doesn't tolerate abusive language toward our team. Because of the way you've spoken to me, this chat is now being closed. You're welcome to contact us again when you're ready to talk respectfully.", go: 'cut', fb: 'Too fast — policy says give ONE respectful warning before ending the chat.' }
       ]
     },
     apology: {
       c: ['…fine. sorry.', "it's just that I've been waiting for this tournament for months. can you make it faster?"],
       o: [
         { q: 3, t: "No worries, I get it! Since it's already shipped, I can't change the shipping speed — but standard deliveries sometimes arrive early, and you'll get a notification the moment it's out for delivery.", go: 'close', fb: "Honest about what can't be done, no false promises, still positive." },
-        { q: 0, t: "Sure, I'll upgrade it to Next-day delivery for you.", retry: true, r: ['wait really? it already shipped tho'], fb: "Once shipped, the shipping speed can't be changed." },
-        { q: 2, t: "Sorry, it already shipped, so I can't speed it up.", go: 'close', fb: 'Correct. A little warmth helps now that he apologized.' }
+        { q: 0, t: "No worries at all, Kyle — I totally get it, a tournament you've waited months for is a big deal! Sure, I'll upgrade it to Next-day delivery for you at no cost, so your headset should arrive tomorrow, well before the weekend.", retry: true, r: ['wait really? it already shipped tho'], fb: "Once shipped, the shipping speed can't be changed." },
+        { q: 2, t: "Unfortunately the headset has already shipped with standard shipping, so the delivery speed can't be changed or upgraded at this point. The estimated delivery date is still Monday, Nov 9, according to the tracking.", go: 'close', fb: 'Correct. A little warmth helps now that he apologized.' }
       ]
     },
     close: {
       c: ["ok. guess I'll wait. thanks"],
       o: [
         { q: 3, t: "You're welcome, Kyle — good luck in the tournament! Anything else I can help with?", go: 'end', fb: 'Ends on a positive, personal note.' },
-        { q: 2, t: 'No problem.', go: 'end_short', fb: 'Fine.' }
+        { q: 2, t: "No problem, Kyle — your headset's on its way.", go: 'end_short', fb: 'Fine.' }
       ]
     },
     fight: { c: ['wow. reported. bye'], end: 'unresolved' },
@@ -456,7 +456,7 @@ SR.scenario({
       c: [],
       o: [
         { q: 3, t: "Hi Megan, I'm {agent}. Good news — the blanket isn't missing! Your order was split into two shipments: the pillow covers came from our Atlanta warehouse and arrived Nov 4, and the Chunky Knit Throw is coming separately from Reno. It shipped yesterday with UPS and should arrive Tuesday, Nov 10.", go: 'why', fb: 'Reads the shipments correctly and turns a complaint into good news.' },
-        { q: 0, t: "I'm so sorry! I'll send you a new blanket right away.", retry: true, r: ["Oh, ok! Though… my app says 'Shipment 2 of 2'. Is that something else?"], fb: "Check the shipments in the order panel — it's a split shipment, not a missing item." },
+        { q: 0, t: "Hi Megan, I'm {agent}, and I'm so sorry the blanket wasn't in your package — that's really disappointing. I don't want you to wait for it, so I'll send you a brand-new Chunky Knit Throw right away with free Express shipping as a Lumen Plus member, and you'll get the tracking number by email today.", retry: true, r: ["Oh, ok! Though… my app says 'Shipment 2 of 2'. Is that something else?"], fb: "Check the shipments in the order panel — it's a split shipment, not a missing item." },
         { q: 2, t: 'Hi Megan! Let me check your order.', go: 'split', fb: 'Fine. Introducing yourself after a bot transfer is a nice touch.' }
       ]
     },
@@ -464,21 +464,21 @@ SR.scenario({
       c: [],
       o: [
         { q: 3, t: "Thanks for waiting! The blanket isn't missing — your order shipped in two packages. The pillow covers arrived Nov 4, and the blanket shipped yesterday from our Reno warehouse. It should arrive Tuesday, Nov 10.", go: 'why', fb: 'Correct reading of the shipments.' },
-        { q: 0, t: "It looks like the warehouse forgot to pack the blanket. I'll file a report.", retry: true, r: ['Really? The app shows something about a second shipment…'], fb: "Read the shipments section: there's a second package on its way." }
+        { q: 0, t: "Thanks for waiting! I've looked into your order, and it looks like our warehouse forgot to pack the blanket with the pillow covers. I'm so sorry about that — I'll file a report with the warehouse team so they can look into it today.", retry: true, r: ['Really? The app shows something about a second shipment…'], fb: "Read the shipments section: there's a second package on its way." }
       ]
     },
     why: {
       c: ["Oh! Why wasn't it all sent together? Nobody told me"],
       o: [
         { q: 3, t: "Sorry it wasn't clearer! Items ship from whichever warehouse has them in stock, so they reach you as fast as possible. You should have received a separate shipping email for the second package — the tracking number is 1Z52R8W60398114427.", go: 'cost', fb: 'Friendly explanation plus the tracking number.' },
-        { q: 1, t: "That's just how our system works.", go: 'cost', r: ["Ok… a heads up would've been nice."], fb: 'Explain the reason in a friendly way.' }
+        { q: 1, t: "That's just how our system works, Megan — orders are split automatically by the warehouse software, and it decides on its own how many packages to send. It happens all the time, so there's nothing to worry about with your order.", go: 'cost', r: ["Ok… a heads up would've been nice."], fb: 'Explain the reason in a friendly way.' }
       ]
     },
     cost: {
       c: ['Got it. Did I pay shipping twice?'],
       o: [
         { q: 3, t: 'Not at all — split shipments never cost extra, and as a Lumen Plus member your shipping was free anyway. Is there anything else I can help with?', go: 'end', fb: 'Accurate and reassuring, with a proper close.' },
-        { q: 0, t: 'Yes, each package is charged separately.', retry: true, r: ["What? I'm a Plus member…"], fb: 'Split shipments never cost extra — and Plus members get free Express shipping.' },
+        { q: 0, t: "Good question! Yes — since your order went out in two packages, each package is charged separately for shipping. You'll see the second shipping charge on your statement in the next few days.", retry: true, r: ["What? I'm a Plus member…"], fb: 'Split shipments never cost extra — and Plus members get free Express shipping.' },
         { q: 2, t: 'No, you only paid once.', go: 'end', fb: 'Correct and short.' }
       ]
     },
@@ -532,15 +532,15 @@ SR.scenario({
       c: ["Hi! My aunt sent me a sweater as a gift but it's too big. Can I exchange it for a medium?", "I don't have an account or anything"],
       o: [
         { q: 3, t: "Hi Ethan! Absolutely — gift exchanges are easy and you don't need an account. Is there a gift receipt in the package? It has a code that starts with 'GR-'.", go: 'code', fb: 'Reassuring, and asks for exactly what you need for a gift exchange.' },
-        { q: 0, t: 'Your aunt will need to contact us, since she placed the order.', retry: true, r: ["Oh… I'd rather not, it's a gift and that'd be awkward 😅"], fb: 'Gift recipients can exchange with the gift receipt code — no need to involve the purchaser.' },
-        { q: 2, t: 'Hi! Do you have the order number?', go: 'code', r: ["I don't think so… there's a gift receipt with a code though?"], fb: "Recipients usually don't have the order number — ask for the gift receipt code." }
+        { q: 0, t: "Hi Ethan! Sorry the sweater doesn't fit — that happens a lot with gifts. Since your aunt placed the order, she'll need to contact us to set up the exchange. Once she does, we can send a medium to your address right away.", retry: true, r: ["Oh… I'd rather not, it's a gift and that'd be awkward 😅"], fb: 'Gift recipients can exchange with the gift receipt code — no need to involve the purchaser.' },
+        { q: 2, t: "Hi Ethan! Sorry the sweater doesn't fit, but no worries, we can sort that out. To find the right order, could you send me the order number? It should be on the packing slip or in the confirmation email your aunt received.", go: 'code', r: ["I don't think so… there's a gift receipt with a code though?"], fb: "Recipients usually don't have the order number — ask for the gift receipt code." }
       ]
     },
     code: {
       c: ['Yes! GR-4418-K'],
       o: [
         { q: 3, t: "Thank you! Found it: the Merino Crewneck Sweater in Navy, size L. Size M in Navy is in stock, so I've set up the exchange. I'm emailing a prepaid return label to ethan.cole@gmail.com, and the medium will ship as soon as the large is scanned by the carrier.", go: 'price', fb: 'Confirms the item and stock without revealing anything about the purchaser.' },
-        { q: 0, t: 'Found it — the order your aunt Diane placed with her Visa ending in 6408.', retry: true, r: ['Uh… I probably shouldn\'t know that stuff haha'], fb: 'Never reveal purchaser details to a gift recipient.' },
+        { q: 0, t: "Thanks, Ethan, found it! That's the order your aunt Diane placed with her Visa ending in 6408 — the Merino Crewneck Sweater in Navy, size L. Size M in Navy is in stock, so I can set up the exchange for you right away and email you a prepaid return label.", retry: true, r: ['Uh… I probably shouldn\'t know that stuff haha'], fb: 'Never reveal purchaser details to a gift recipient.' },
         { q: 2, t: "Found it! Size M is in stock, so I'll set up the exchange.", go: 'price', fb: 'Correct. Explain the return label and when the new size ships.' }
       ]
     },
@@ -548,7 +548,7 @@ SR.scenario({
       c: ['Awesome, thanks!', 'Just curious… how much did she pay for it? 😄'],
       o: [
         { q: 3, t: "Haha, I'm afraid that's a gift secret I can't share 🎁 We keep purchase details private on gifts. But I can tell you your aunt has great taste!", go: 'notify', fb: 'Protects privacy while keeping the tone light and friendly.' },
-        { q: 0, t: 'It was $98.00.', retry: true, r: ['Ha, ok… wait, are you even allowed to tell me that?'], fb: 'The price paid is private purchaser information. Never share it with the recipient.' },
+        { q: 0, t: "Sure! Your aunt paid $98.00 for the sweater, so it's a pretty nice gift — and the exchange for the medium won't cost you anything.", retry: true, r: ['Ha, ok… wait, are you even allowed to tell me that?'], fb: 'The price paid is private purchaser information. Never share it with the recipient.' },
         { q: 2, t: "Sorry, I can't share that information.", go: 'notify', fb: 'Correct. A friendly tone keeps it light.' }
       ]
     },
@@ -556,7 +556,7 @@ SR.scenario({
       c: ['Haha fair enough. Will she get an email about the exchange?'],
       o: [
         { q: 3, t: "Nope — purchasers aren't notified about gift returns or exchanges, so it stays between us. Your return label is on its way to ethan.cole@gmail.com. Anything else I can help with?", go: 'end', fb: 'Accurate and reassuring, with a proper close.' },
-        { q: 0, t: "Yes, she'll get a confirmation email so she knows it was exchanged.", retry: true, r: ["Oh no, really? I didn't want her to know 😬"], fb: 'Gift purchasers are not notified of returns or exchanges.' },
+        { q: 0, t: "Yes, Ethan — your aunt will get a short confirmation email once the exchange is processed, so she knows the sweater was swapped for a medium. It's just an automatic notice, so there's nothing she needs to do.", retry: true, r: ["Oh no, really? I didn't want her to know 😬"], fb: 'Gift purchasers are not notified of returns or exchanges.' },
         { q: 2, t: "No, she won't be notified.", go: 'end', fb: 'Correct and short.' }
       ]
     },

@@ -5,6 +5,7 @@
   const SR = window.SR;
   const D = SR.data;
   const E = SR.engine;
+  const SS = SR.session;
   const icon = SR.icon;
 
   /* =========================================================
@@ -14,12 +15,39 @@
   function loadStore() {
     try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
   }
-  const store = Object.assign({ agentName: 'Alex Morgan', coach: true, sound: true, intro: true, theme: 'light', unlockAll: false, progress: {} }, loadStore());
+  const store = Object.assign({ agentName: 'Alex Morgan', coach: true, sound: true, intro: true, theme: 'light', unlockAll: false, difficulty: SS.DEFAULT_DIFFICULTY, progress: {} }, loadStore());
   if (!store.progress || typeof store.progress !== 'object') store.progress = {};
+  if (!SS.DIFFICULTIES.some(d => d.id === store.difficulty)) store.difficulty = SS.DEFAULT_DIFFICULTY;
   function saveStore() {
     try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* storage unavailable */ }
   }
   E.settings = store;
+
+  /* Session reports of this visit: kept in memory and, when the browser allows it, in
+     sessionStorage, so they survive moving between screens and reloading this tab. */
+  const HIST_KEY = 'shiftready.sessions.v1';
+  const HIST_MAX = 12;
+  let history = [];
+  try { history = JSON.parse(sessionStorage.getItem(HIST_KEY)) || []; } catch (e) { history = []; }
+  if (!Array.isArray(history)) history = [];
+  history = history.filter(s => s && s.id && Array.isArray(s.days) && s.results && typeof s.results === 'object');
+  function saveHistory() {
+    if (history.length > HIST_MAX) history.length = HIST_MAX;
+    try { sessionStorage.setItem(HIST_KEY, JSON.stringify(history)); } catch (e) { /* storage unavailable: memory only */ }
+  }
+  function rememberSession(s) {
+    history = [s].concat(history.filter(x => x.id !== s.id));
+    saveHistory();
+  }
+  const sessionById = id => history.find(s => s.id === id) || null;
+
+  // The difficulty of the shift being played (or the one picked for the next one)
+  function curDifficulty() { return SS.difficulty(ui.session && ui.view !== 'lobby' && ui.view !== 'setup' ? ui.session.difficulty : store.difficulty); }
+  // Coach notes during a shift: always at Easy, hidden at Hard, the setting at Intermediate
+  function coachOn() {
+    const d = curDifficulty();
+    return d.coach === 'always' ? true : d.coach === 'hidden' ? false : !!store.coach;
+  }
 
   /* =========================================================
      Helpers
@@ -160,7 +188,10 @@
     view: 'lobby', day: firstAvailableDay(), active: null,
     sort: 'newest', search: '', closedOpen: false,
     collapsed: {}, polOpen: {}, wrapSel: {},
-    kb: false, kbQuery: '', modal: null, detailsOpen: false
+    kb: false, kbQuery: '', modal: null, detailsOpen: false,
+    session: null,                      // the training session being played (assets/js/session.js)
+    viewing: null,                      // the session whose report is on screen
+    setup: null                         // choices on the session setup screen: { days, difficulty }
   };
   const app = document.getElementById('app');
   const overlay = document.createElement('div');
@@ -191,7 +222,17 @@
               '<img class="lb-logo" src="assets/img/logo-768.png" alt="ShiftReady" draggable="false">' +
               '<span class="howto-wrap"><button class="howto-btn" data-act="howto" aria-pressed="false" aria-label="How to start"><span class="howto-t">Press!</span></button></span>' +
             '</div>' +
-            '<div class="howto-cap" aria-live="polite"></div>' +
+            '<div class="lb-stage">' +
+              '<div class="howto-cap" aria-live="polite"></div>' +
+              '<div class="lb-intro">' +
+                '<span class="eyebrow">Customer care training · Lumen &amp; Co.</span>' +
+                '<h1>Practice live support chats under real pressure</h1>' +
+                '<p>' + D.days.length + ' training days · ' + D.scenarios.length + ' customers · real company policies. Choose the days and the difficulty, then get a full session report.</p>' +
+                '<div class="lb-cta"><button class="btn btn-primary btn-lg" data-act="setup">' + icon('sliders', 16) + 'Set up a training session</button>' +
+                  (reported().length ? '<a class="btn btn-lg" href="#sessions">' + icon('file', 15) + 'Session reports <span class="count">' + reported().length + '</span></a>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
           '</section>' +
           '<section class="lb-grid">' +
             '<div>' +
@@ -200,6 +241,7 @@
             '</div>' +
             '<aside id="brief">' + briefHTML(ui.day) + '</aside>' +
           '</section>' +
+          historyHTML() +
           '<section class="how">' +
             howStep(1, 'Read the customer', 'Check the message, the order details and the relevant policy in the customer file.') +
             howStep(2, 'Choose the best reply', 'Tap or click an answer and send it (on a keyboard: 1–4, then Enter). Some replies sound right but contain the wrong facts.') +
@@ -285,13 +327,185 @@
           toggleHTML('intro', 'Welcome screen', 'Show it when the app opens', store.intro !== false) +
         '</div>' +
       '</div>' +
-      '<button class="btn btn-primary btn-lg btn-block" data-act="start" data-day="' + n + '">Start shift ' + icon('arrowRight', 17) + '</button>' +
+      quickStartHTML(n) +
     '</div>';
+  }
+
+  // Difficulty picker + start for a one-day session from the lobby
+  function quickStartHTML(n) {
+    const d = SS.difficulty(store.difficulty);
+    return '<div class="quick">' +
+      '<div class="quick-h"><b>Difficulty</b><span id="quickBlurb">' + esc(d.blurb) + '</span></div>' +
+      segHTML('quick-diff', store.difficulty) +
+      '<button class="btn btn-primary btn-lg btn-block" data-act="start" data-day="' + n + '">Start shift ' + icon('arrowRight', 17) + '</button>' +
+      '<p class="quick-note" id="quickNote">' + quickNote(n, d) + '</p>' +
+    '</div>';
+  }
+  function quickNote(n, d) {
+    return esc('Plays Day ' + n + ' on its own' + (d.practice ? ' as practice — it won’t unlock days or change best scores' : '') + '. ') +
+      '<button class="link-quiet" data-act="setup">Combine several days</button>';
+  }
+  function segHTML(act, value) {
+    return '<div class="seg" role="radiogroup" aria-label="Difficulty">' + SS.DIFFICULTIES.map(x =>
+      '<button class="seg-b' + (x.id === value ? ' on' : '') + '" role="radio" aria-checked="' + (x.id === value) + '" data-act="' + act + '" data-diff="' + x.id + '">' + esc(x.label) + '</button>').join('') + '</div>';
+  }
+
+  /* ---------- session reports of this visit ---------- */
+  const STATUS = {
+    passed: { label: 'Passed', tone: 'success', icon: 'checkCircle' },
+    failed: { label: 'Not passed', tone: 'danger', icon: 'xCircle' },
+    incomplete: { label: 'Incomplete · no pass/fail', tone: 'neutral', icon: 'info' },
+    practice: { label: 'Practice · no pass/fail', tone: 'info', icon: 'sparkle' }
+  };
+  function statusPill(status) {
+    const s = STATUS[status];
+    return '<span class="pill pill-' + s.tone + '">' + icon(s.icon, 12) + esc(s.label) + '</span>';
+  }
+  function whenLabel(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const h = d.getHours(), m = d.getMinutes();
+    return MONTHS[d.getMonth()] + ' ' + d.getDate() + ' · ' + ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM');
+  }
+  function daysLabel(days) { return days.length === 1 ? 'Day ' + days[0] : 'Days ' + days.join(', '); }
+
+  // Sessions with at least one finished day (only those have a report)
+  const reported = () => history.filter(s => Object.keys(s.results).length > 0);
+  function historyHTML() {
+    const list = reported();
+    if (!list.length) return '';
+    return '<section class="hist" id="sessions">' +
+      '<div class="sec-h"><h2>Session reports</h2><span>From this visit · kept until you close this tab</span></div>' +
+      '<div class="hist-list">' + list.map(s => {
+        const r = SS.buildReport(s, D);
+        const live = SS.nextDay(s) != null && !s.endedEarly;
+        return '<button class="hist-row" data-act="open-session" data-id="' + esc(s.id) + '">' +
+          '<span class="hist-when">' + esc(whenLabel(s.createdAt)) + '</span>' +
+          '<span class="hist-what"><b>' + esc(daysLabel(s.days)) + '</b><span>' + esc(SS.difficulty(s.difficulty).label) + ' · ' + r.completedScenarios + ' of ' + r.plannedScenarios + ' customers</span></span>' +
+          (live ? '<span class="pill pill-info">' + icon('play', 11) + 'In progress</span>' : statusPill(r.status)) +
+          '<span class="hist-score">' + (r.percent == null ? '—' : Math.round(r.percent * 100) + '%') + '</span>' +
+          '<span class="chev">' + icon('chevDown', 16) + '</span></button>';
+      }).join('') + '</div></section>';
   }
 
   function toggleHTML(key, label, sub, on) {
     return '<label class="tgl"><input type="checkbox" data-setting="' + key + '"' + (on ? ' checked' : '') + '><span class="tgl-ui"></span>' +
       '<span class="tgl-t"><b>' + esc(label) + '</b><small>' + esc(sub) + '</small></span></label>';
+  }
+
+  /* =========================================================
+     SESSION SETUP — days and difficulty before a session starts
+     ========================================================= */
+  function renderSetup() {
+    ui.view = 'setup';
+    clearToasts();
+    stopHowto(true);
+    closeModal(true);
+    endTour();
+    if (!ui.setup) ui.setup = { days: isUnlocked(ui.day) ? [ui.day] : [], difficulty: store.difficulty };
+    ui.setup.days = ui.setup.days.filter(isUnlocked);
+    document.title = 'New training session · ShiftReady';
+    const locked = D.days.filter(d => !isUnlocked(d.n)).length;
+    app.innerHTML =
+      '<div class="setup su-enter">' +
+        '<main class="su-wrap">' +
+          '<header class="su-top">' +
+            '<button class="btn btn-ghost" data-act="lobby">' + icon('arrowLeft', 15) + 'Lobby</button>' +
+            themeButton() +
+          '</header>' +
+          '<div class="su-head"><span class="eyebrow">New training session</span><h1>Set up your session</h1>' +
+            '<p>Choose the training days to include and how much pressure to put on. The days are played one after another, with a report after each day and a full session report at the end.</p></div>' +
+          '<div class="su-grid">' +
+            '<div class="su-main">' +
+              '<section class="su-sec" aria-labelledby="suDaysH">' +
+                '<div class="su-sec-h"><h2 id="suDaysH"><span class="su-step">1</span>Training days</h2>' +
+                  '<div class="su-tools"><button class="btn btn-sm" data-act="su-all">' + icon('checks', 14) + 'Select all available</button>' +
+                  '<button class="btn btn-sm btn-ghost" data-act="su-none">Clear</button></div></div>' +
+                '<div class="su-days">' + D.days.map(dayPickHTML).join('') + '</div>' +
+                (locked ? '<p class="su-locked">' + icon('lock', 13) + locked + ' day' + (locked === 1 ? ' is' : 's are') + ' locked — pass each day to open the next, or <button class="link-quiet" data-act="unlock-all">unlock all days</button>.</p>' : '') +
+              '</section>' +
+              '<section class="su-sec" aria-labelledby="suDiffH">' +
+                '<div class="su-sec-h"><h2 id="suDiffH"><span class="su-step">2</span>Difficulty</h2></div>' +
+                '<div class="diff-cards" role="radiogroup" aria-labelledby="suDiffH">' + SS.DIFFICULTIES.map(diffCardHTML).join('') + '</div>' +
+                '<p class="su-note">' + icon('info', 13) + 'Every level uses the same ' + D.scenarios.length + ' cases and the same scoring. Difficulty changes the pressure and the guidance; the days themselves go from Easy (Day 1) to Expert (Day 5).</p>' +
+              '</section>' +
+            '</div>' +
+            '<aside class="su-side"><div class="su-sum" id="suSum">' + setupSummaryHTML() + '</div></aside>' +
+          '</div>' +
+        '</main>' +
+      '</div>';
+    window.scrollTo(0, 0);
+    updateRotate();
+  }
+
+  function dayPickHTML(d) {
+    const open = isUnlocked(d.n);
+    const on = open && ui.setup.days.indexOf(d.n) !== -1;
+    const scs = D.scenarios.filter(s => s.day === d.n).sort((a, b) => a.arrive - b.arrive);
+    const p = store.progress[d.n];
+    const right = !open ? '<span class="dp-lock">' + icon('lock', 14) + 'Pass Day ' + (d.n - 1) + ' to unlock</span>'
+      : p ? '<span class="dp-best">' + bigStarsSmall(p.stars) + '<span>Best ' + p.best + '</span></span>' : '<span class="dc-new">New</span>';
+    return '<div class="dp' + (on ? ' on' : '') + (open ? '' : ' locked') + '" data-day="' + d.n + '">' +
+      '<label class="dp-main">' +
+        '<input type="checkbox" data-su-day="' + d.n + '"' + (on ? ' checked' : '') + (open ? '' : ' disabled') + ' aria-describedby="dpm' + d.n + '">' +
+        '<span class="dp-box" aria-hidden="true">' + icon('check', 13) + '</span>' +
+        '<span class="dc-num"><small>Day</small>' + d.n + '</span>' +
+        '<span class="dp-body"><span class="dp-title">' + esc(d.title) + '<span class="lvl lvl-' + d.level.toLowerCase() + '">' + esc(d.level) + '</span></span>' +
+          '<span class="dp-meta" id="dpm' + d.n + '">' + fmtDow(d.date) + ' · ' + scs.length + ' customers · ' + esc(d.patience) + ' patience</span></span>' +
+        right +
+      '</label>' +
+      '<details class="dp-more"><summary>' + icon('chevRight', 13) + 'Cases and skills</summary>' +
+        '<div class="dp-cols">' +
+          '<div><h4>Customers</h4><ul class="dp-cases">' + scs.map(s =>
+            '<li>' + avatarHTML(s.customer, 24) + '<span><b>' + esc(s.customer.first + ' ' + s.customer.last) + '</b><span>' + esc(s.topic) + ' · ' + esc(CH[s.channel].label) + '</span></span></li>').join('') + '</ul></div>' +
+          '<div><h4>Skills practiced</h4><ul class="checks">' + d.focus.map(f => '<li>' + icon('check', 14) + '<span>' + esc(f) + '</span></li>').join('') + '</ul></div>' +
+        '</div>' +
+      '</details>' +
+    '</div>';
+  }
+
+  function diffCardHTML(x) {
+    const on = ui.setup.difficulty === x.id;
+    return '<label class="diff' + (on ? ' on' : '') + '" data-diff="' + x.id + '">' +
+      '<input type="radio" name="suDiff" value="' + x.id + '"' + (on ? ' checked' : '') + '>' +
+      '<span class="diff-h"><b>' + esc(x.label) + '</b>' + (x.practice ? '<span class="pill pill-info">Practice</span>' : '') + '<span class="diff-dot" aria-hidden="true"></span></span>' +
+      '<span class="diff-b">' + esc(x.blurb) + '</span>' +
+      '<ul>' + x.changes.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul>' +
+    '</label>';
+  }
+
+  function setupSummaryHTML() {
+    const v = SS.validateConfig(ui.setup, { data: D, isUnlocked });
+    const diff = SS.difficulty(ui.setup.difficulty);
+    const rows = v.days.map(n => {
+      const d = D.days.find(x => x.n === n);
+      const c = D.scenarios.filter(s => s.day === n).length;
+      return '<li><span class="sum-n">' + n + '</span><span><b>' + esc(d.title) + '</b><span>' + c + ' customers · ' + esc(d.level) + '</span></span></li>';
+    }).join('');
+    return '<h3>Session summary</h3>' +
+      '<div class="sum-big">' +
+        '<div><b>' + v.days.length + '</b><span>' + (v.days.length === 1 ? 'day' : 'days') + '</span></div>' +
+        '<div><b>' + v.scenarios + '</b><span>customers</span></div>' +
+        '<div><b>' + esc(diff.label) + '</b><span>difficulty</span></div>' +
+      '</div>' +
+      (rows ? '<ol class="sum-days">' + rows + '</ol>' : '<p class="sum-empty">No days selected yet.</p>') +
+      (v.ok ? '' : '<div class="alert" role="alert">' + icon('alert', 15) + '<div>' + v.errors.map(e => '<p>' + esc(e) + '</p>').join('') + '</div></div>') +
+      (diff.practice && v.ok ? '<p class="sum-flow">' + icon('info', 13) + 'Practice session: results won’t unlock days or change best scores.</p>' : '') +
+      '<button class="btn btn-primary btn-lg btn-block" data-act="start-session"' + (v.ok ? '' : ' disabled aria-disabled="true"') + '>Start session ' + icon('arrowRight', 17) + '</button>' +
+      (v.ok ? '<p class="sum-flow">You’ll start with Day ' + v.days[0] + '.' + (v.days.length > 1 ? ' After each day, continue to the next one.' : '') + '</p>' : '');
+  }
+
+  function refreshSetup() {
+    const sum = $('#suSum');
+    if (sum) sum.innerHTML = setupSummaryHTML();
+    $$('.dp').forEach(el => el.classList.toggle('on', ui.setup.days.indexOf(Number(el.dataset.day)) !== -1));
+    $$('input[data-su-day]').forEach(i => { i.checked = ui.setup.days.indexOf(Number(i.dataset.suDay)) !== -1; });
+    $$('.diff').forEach(el => {
+      const on = el.dataset.diff === ui.setup.difficulty;
+      el.classList.toggle('on', on);
+      const input = $('input', el);
+      if (input) input.checked = on;
+    });
   }
 
   /* =========================================================
@@ -316,10 +530,28 @@
     listEls.clear();
     emptyEl = null;
     closedHeadEl = null;
-    E.startDay(n);
+    // Every shift belongs to a session: its difficulty sets the pace, its seed the option order
+    if (!ui.session || ui.session.days.indexOf(n) === -1) ui.session = newSession([n], store.difficulty);
+    E.startDay(n, SS.startOptions(ui.session, n));
     renderWorkspace();
     updateRotate();
     if (n === 1) startTourWhenReady();   // Day 1: a short tour of the workspace
+  }
+
+  function newSession(days, difficulty) {
+    const s = SS.createSession({ days, difficulty }, { data: D, isUnlocked });
+    rememberSession(s);
+    return s;
+  }
+  // From the setup screen, or a single day from the lobby
+  function startSession(days, difficulty) {
+    const v = SS.validateConfig({ days, difficulty }, { data: D, isUnlocked });
+    if (!v.ok) return false;
+    store.difficulty = difficulty;
+    saveStore();
+    ui.session = newSession(v.days, difficulty);
+    startShift(SS.nextDay(ui.session));
+    return true;
   }
 
   function renderWorkspace() {
@@ -337,7 +569,8 @@
         '</nav>' +
         '<div class="main">' +
           '<header class="topbar">' +
-            '<div class="tb-title"><h1>Team Inbox</h1><span class="day-chip" title="' + esc(d.title) + '">Day ' + d.n + '<span class="dct"> · ' + esc(d.title) + '</span></span></div>' +
+            '<div class="tb-title"><h1>Team Inbox</h1><span class="day-chip" title="' + esc(d.title) + '">Day ' + d.n + '<span class="dct"> · ' + esc(d.title) + '</span></span>' +
+              sessionChip() + '</div>' +
             '<div class="tb-stats" id="tbStats"></div>' +
             '<div class="tb-right">' +
               '<label class="search">' + icon('search', 15) + '<input id="search" placeholder="Search name, topic or order…" autocomplete="off" spellcheck="false"></label>' +
@@ -376,6 +609,16 @@
     renderChat();
     renderDetails();
     updateTitle();
+  }
+
+  // Difficulty and place in the session, next to the day in the top bar
+  function sessionChip() {
+    const s = ui.session;
+    if (!s) return '';
+    const d = SS.difficulty(s.difficulty);
+    const pos = s.days.indexOf(E.st.n) + 1;
+    return '<span class="diff-chip diff-' + d.id + '" title="' + esc(d.changes.join(' · ')) + '">' + esc(d.label) +
+      (s.days.length > 1 ? '<span class="dct"> · ' + pos + ' of ' + s.days.length + '</span>' : '') + '</span>';
   }
 
   function renderSortLabel() {
@@ -649,7 +892,7 @@
 
   function msgHTML(c, m, prev) {
     if (m.from === 'coach') {
-      if (!store.coach || !m.text) return '';
+      if (!coachOn() || !m.text) return '';
       const ql = Q[m.q];
       return '<div class="coach q' + m.q + '"><div class="coach-in"><span class="coach-tag">' + icon(ql.icon, 12) + ql.label + '</span><span class="coach-t">' + esc(m.text) + '</span></div></div>';
     }
@@ -685,7 +928,7 @@
     if (m.kind === 'closed') {
       const d = DISP[m.code];
       let h = '<div class="sys"><span>' + icon('checkCircle', 13) + ' Closed with code <b>' + esc(d ? d.label : m.code) + '</b> · ' + clockLabel(m.at) + '</span></div>';
-      if (store.coach) {
+      if (coachOn()) {
         const exp = c.correctDisp.map(id => DISP[id].label).join(' or ');
         h += m.ok
           ? '<div class="coach q3" style="justify-content:center;padding-right:0"><div class="coach-in"><span class="coach-tag">' + icon('checkCircle', 12) + 'Wrap-up</span><span class="coach-t">Correct resolution code.</span></div></div>'
@@ -1199,7 +1442,7 @@
     } else if (kind === 'settings') {
       html = '<div class="modal"><div class="md-ic">' + icon('sliders', 22) + '</div><h3>Settings</h3><p>The shift is paused while you change settings.</p>' +
         '<div class="md-toggles">' +
-          toggleHTML('coach', 'Coach notes', 'Show a feedback note under each reply you send', store.coach) +
+          coachToggleHTML('Show a feedback note under each reply you send') +
           toggleHTML('sound', 'Sound', 'Button sounds, notifications and the welcome voice', store.sound) +
           toggleHTML('dark', 'Dark mode', 'Dark colors for the whole simulator', store.theme === 'dark') +
           toggleHTML('intro', 'Welcome screen', 'Show the welcome message and logo when the app opens', store.intro !== false) +
@@ -1217,6 +1460,15 @@
     overlay.classList.add('open');
     const primary = $('.btn-primary, .btn-danger', overlay);
     if (primary) setTimeout(() => primary.focus(), 30);
+  }
+  // During an Easy or Hard shift the difficulty decides the coach notes, so the switch is shown locked
+  function coachToggleHTML(sub) {
+    const d = curDifficulty();
+    if (ui.view === 'shift' && d.coach !== 'setting') {
+      return '<label class="tgl is-fixed" aria-disabled="true"><input type="checkbox" disabled' + (d.coach === 'always' ? ' checked' : '') + '><span class="tgl-ui"></span>' +
+        '<span class="tgl-t"><b>Coach notes</b><small>' + (d.coach === 'always' ? 'Always on at Easy' : 'Hidden at Hard — you’ll see them in the report') + '</small></span></label>';
+    }
+    return toggleHTML('coach', 'Coach notes', sub, store.coach);
   }
   function keyRow(label, keys) { return '<div><span>' + esc(label) + '</span><span>' + keys + '</span></div>'; }
   function closeModal(silent) {
@@ -1793,15 +2045,23 @@
      ========================================================= */
   function showReport(rep) {
     const d = rep.day;
+    const sess = ui.session;
+    const diff = SS.difficulty(sess.difficulty);
+    const practice = diff.practice;
+    SS.recordDay(sess, rep);
+    rememberSession(sess);
     const prev = store.progress[d.n];
-    const isBest = !prev || rep.score > prev.best;
-    store.progress[d.n] = {
-      best: Math.max(rep.score, prev ? prev.best : 0),
-      stars: Math.max(rep.stars, prev ? prev.stars : 0),
-      passed: !!((prev && prev.passed) || rep.passed),
-      last: rep.score
-    };
-    saveStore();
+    const isBest = !practice && (!prev || rep.score > prev.best);
+    // Easy is practice: it doesn't unlock days or change best scores
+    if (!practice) {
+      store.progress[d.n] = {
+        best: Math.max(rep.score, prev ? prev.best : 0),
+        stars: Math.max(rep.stars, prev ? prev.stars : 0),
+        passed: !!((prev && prev.passed) || rep.passed),
+        last: rep.score
+      };
+      saveStore();
+    }
     closeModal(true);
     closeKB();
     closeDoc();
@@ -1811,31 +2071,50 @@
     updateRotate();
     document.title = 'Shift report · Day ' + d.n + ' · ShiftReady';
     const next = D.days.find(x => x.n === d.n + 1);
-    const nextOpen = next && isUnlocked(next.n);
+    const nextInSession = SS.nextDay(sess);
+    const multi = sess.days.length > 1;
     let headline, sub;
     if (rep.passed) {
       headline = rep.stars === 3 ? 'Outstanding shift!' : rep.stars === 2 ? 'Great shift — well done.' : 'Shift passed.';
-      sub = next ? 'You passed Day ' + d.n + '. Day ' + next.n + ' · ' + next.title + ' is unlocked.' : 'You completed the final day of training — you’re ready for the floor.';
+      sub = practice ? 'You reached the pass mark at Easy. Practice results don’t count — play it at Intermediate or Hard to ' + (next ? 'unlock Day ' + next.n : 'record your best score') + '.'
+        : next ? 'You passed Day ' + d.n + '. Day ' + next.n + ' · ' + next.title + ' is unlocked.' : 'You completed the final day of training — you’re ready for the floor.';
     } else {
       headline = 'Shift complete — keep practicing.';
       sub = 'You need a score of 60 or more to pass this day. Review the coaching below and try again.';
     }
     const firstIssue = rep.convs.findIndex(c => c.decisions.some(x => x.q < 3) || !c.dispOk || c.outcome !== 'resolved');
-    const actions =
-      (rep.passed && next ? '<button class="btn btn-primary btn-lg" data-act="next" data-day="' + next.n + '">Start Day ' + next.n + ' ' + icon('arrowRight', 16) + '</button>' : '') +
-      '<button class="btn btn-lg' + (rep.passed && next ? '' : ' btn-primary') + '" data-act="retry" data-day="' + d.n + '">' + icon('rotate', 15) + 'Retry Day ' + d.n + '</button>' +
-      '<button class="btn btn-lg btn-ghost" data-act="lobby">' + icon('home', 15) + 'Back to lobby</button>';
+    let actions;
+    if (nextInSession) {
+      const k = sess.days.indexOf(nextInSession) + 1;
+      actions = '<button class="btn btn-primary btn-lg" data-act="session-next">Continue to Day ' + nextInSession + ' <span class="btn-sub">' + k + ' of ' + sess.days.length + '</span>' + icon('arrowRight', 16) + '</button>' +
+        '<button class="btn btn-lg" data-act="retry" data-day="' + d.n + '">' + icon('rotate', 15) + 'Retry Day ' + d.n + '</button>' +
+        '<button class="btn btn-lg btn-ghost" data-act="session-report">' + icon('file', 15) + 'End session · report</button>';
+    } else if (multi) {
+      actions = '<button class="btn btn-primary btn-lg" data-act="session-report">' + icon('file', 15) + 'View session report</button>' +
+        '<button class="btn btn-lg" data-act="retry" data-day="' + d.n + '">' + icon('rotate', 15) + 'Retry Day ' + d.n + '</button>' +
+        '<button class="btn btn-lg btn-ghost" data-act="lobby">' + icon('home', 15) + 'Back to lobby</button>';
+    } else {
+      const canNext = rep.passed && next && isUnlocked(next.n);
+      actions =
+        (canNext ? '<button class="btn btn-primary btn-lg" data-act="next" data-day="' + next.n + '">Start Day ' + next.n + ' ' + icon('arrowRight', 16) + '</button>' : '') +
+        '<button class="btn btn-lg' + (canNext ? '' : ' btn-primary') + '" data-act="retry" data-day="' + d.n + '">' + icon('rotate', 15) + 'Retry Day ' + d.n + '</button>' +
+        '<button class="btn btn-lg" data-act="session-report">' + icon('file', 15) + 'Session report</button>' +
+        '<button class="btn btn-lg btn-ghost" data-act="lobby">' + icon('home', 15) + 'Back to lobby</button>';
+    }
+    if (!nextInSession) sess.finishedAt = new Date().toISOString();
 
     app.innerHTML =
       '<div class="report rp-enter">' +
         '<main class="rp-main">' +
+          (multi ? sessionStepsHTML(sess, d.n) : '') +
           '<section class="rp-hero">' +
-            '<div><span class="eyebrow">Shift report · Day ' + d.n + ' · ' + esc(d.title) + '</span>' +
+            '<div><span class="eyebrow">Shift report · Day ' + d.n + ' · ' + esc(d.title) + ' · ' + esc(diff.label) + '</span>' +
               '<h1>' + esc(headline) + '</h1><p>' + esc(sub) + '</p>' +
               '<div class="rp-actions">' + actions + '</div></div>' +
             '<div class="rp-score">' + scoreRing(rep.score, rep.passed) +
               '<div class="big-stars">' + [1, 2, 3].map(i => '<span class="' + (i <= rep.stars ? '' : 'off') + '">' + icon('star', 26) + '</span>').join('') + '</div>' +
               (isBest && prev ? '<span class="pill pill-success">' + icon('trending', 12) + 'New personal best</span>' : '<span class="pill pill-neutral">Shift length ' + secs(rep.duration) + '</span>') +
+              (practice ? '<span class="pill pill-info">' + icon('sparkle', 12) + 'Practice · Easy</span>' : '') +
             '</div>' +
           '</section>' +
           '<section class="kpis">' +
@@ -1858,25 +2137,28 @@
     }));
   }
 
-  function scoreRing(score, passed) {
+  // label: optional caption under the number (a session shows its performance in %)
+  function scoreRing(score, passed, label) {
     const color = score >= 90 ? '#12915c' : score >= 75 ? '#2b62e3' : score >= 60 ? '#b07214' : '#cf3a3a';
     return '<div class="score-ring"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52" pathLength="100"/>' +
       '<circle class="fg" cx="60" cy="60" r="52" pathLength="100" style="stroke:' + color + ';stroke-dashoffset:100"/></svg>' +
-      '<div class="num"><b>' + score + '</b><span>' + (passed ? 'Passed' : 'Score / 100') + '</span></div></div>';
+      '<div class="num"><b>' + score + (label ? '<small>%</small>' : '') + '</b><span>' + esc(label || (passed ? 'Passed' : 'Score / 100')) + '</span></div></div>';
   }
 
   function kpi(k, ic, label, value, sub) {
     return '<div class="kpi" style="--k:' + k + '"><div class="kpi-top">' + icon(ic, 14) + esc(label) + '</div><b>' + esc(value) + '</b><small>' + esc(sub) + '</small></div>';
   }
 
+  // c: a live conversation (c.sc) or a stored one from a session (customer fields on c)
   function convRow(c, open) {
     const oc = OUTCOMES[c.outcome] || OUTCOMES.resolved;
-    const cu = c.sc.customer;
+    const cu = c.sc ? c.sc.customer : c;
+    const topic = c.sc ? c.sc.topic : c.topic;
     const chosen = DISP[c.disposition];
     const expected = c.correctDisp.map(id => DISP[id].label).join(' or ');
     return '<div class="rc' + (open ? ' open' : '') + '">' +
-      '<button class="rc-h" data-act="rc-toggle">' + avatarHTML(cu, 38) +
-        '<span class="rc-id"><b>' + esc(cu.first + ' ' + cu.last) + '</b><span>' + esc(c.sc.topic) + '</span></span>' +
+      '<button class="rc-h" data-act="rc-toggle" aria-expanded="' + !!open + '">' + avatarHTML(cu, 38) +
+        '<span class="rc-id"><b>' + esc(cu.first + ' ' + cu.last) + '</b><span>' + esc(topic) + '</span></span>' +
         '<span class="pill pill-' + oc.tone + '">' + icon(oc.icon, 12) + oc.label + '</span>' +
         '<span class="rc-stat"><small>CSAT</small>' + starsHTML(c.csat, 12) + '</span>' +
         '<span class="rc-stat"><small>Quality</small><b>' + pct(c.accuracy) + '</b></span>' +
@@ -1899,6 +2181,146 @@
       (d.fb ? '<div class="dec-fb">' + icon(ql.icon, 14) + '<span>' + esc(d.fb) + '</span></div>' : '') +
       (d.best ? '<div class="dec-best"><span class="lbl">' + icon('sparkle', 12) + 'Best reply</span><p>' + esc(d.best) + '</p></div>' : '') +
     '</div></div>';
+  }
+
+  /* =========================================================
+     SESSION REPORT — every day and every customer of the session
+     ========================================================= */
+  // Progress through the days of a session (shown above a day report)
+  function sessionStepsHTML(s, current) {
+    return '<nav class="ss-steps" aria-label="Session progress">' + s.days.map(n => {
+      const r = s.results[n];
+      const cls = r ? (n === current ? ' cur done' : ' done') : (n === current ? ' cur' : '');
+      return '<span class="ss-step' + cls + '">' + (r ? icon('check', 12) : '<i>' + n + '</i>') + 'Day ' + n + (r ? ' · ' + r.score : '') + '</span>';
+    }).join('<span class="ss-sep" aria-hidden="true"></span>') + '</nav>';
+  }
+
+  function renderSessionReport(s) {
+    const r = SS.buildReport(s, D);
+    const diff = SS.difficulty(s.difficulty);
+    closeModal(true);
+    clearToasts();
+    ui.view = 'session';
+    endTour();
+    updateRotate();
+    document.title = 'Session report · ShiftReady';
+    const pctNum = r.percent == null ? 0 : Math.round(r.percent * 100);
+    const below = r.perDay.filter(x => x.score < r.passScore);
+    const nextN = SS.nextDay(s);
+    const resumable = nextN != null;
+    ui.viewing = s;
+    const head = {
+      passed: ['Session passed', 'Every day in this session reached the pass mark of ' + r.passScore + '.'],
+      failed: ['Session not passed', 'Each day needs ' + r.passScore + ' or more. Below the mark: ' + below.map(x => 'Day ' + x.n + ' (' + x.score + ')').join(', ') + '.'],
+      incomplete: s.endedEarly
+        ? ['Session ended early', 'You played ' + r.completedDays + ' of ' + r.plannedDays + ' days. A pass or fail needs every day of the session, so this one has none — the results below cover what you played.']
+        : ['Session in progress', 'You’ve played ' + r.completedDays + ' of ' + r.plannedDays + ' days. Continue with Day ' + nextN + ' to finish it — a pass or fail needs every day of the session.'],
+      practice: ['Practice session complete', 'Easy sessions are practice: they show every result, without a pass or fail.']
+    }[r.status];
+    const actions =
+      (resumable ? '<button class="btn btn-primary btn-lg" data-act="session-next">Continue to Day ' + nextN + ' ' + icon('arrowRight', 16) + '</button>' : '') +
+      '<button class="btn btn-lg' + (resumable ? '' : ' btn-primary') + '" data-act="setup">' + icon('sliders', 15) + 'New session</button>' +
+      '<button class="btn btn-lg btn-ghost" data-act="lobby">' + icon('home', 15) + 'Back to lobby</button>';
+
+    app.innerHTML =
+      '<div class="report sr rp-enter">' +
+        '<main class="rp-main">' +
+          '<section class="rp-hero">' +
+            '<div><span class="eyebrow">Session report · ' + esc(whenLabel(s.createdAt)) + '</span>' +
+              '<h1>' + esc(head[0]) + '</h1><p>' + esc(head[1]) + '</p>' +
+              '<div class="sr-tags">' + statusPill(r.status) +
+                '<span class="pill pill-neutral">' + icon('target', 12) + esc(diff.label) + '</span>' +
+                '<span class="pill pill-neutral">' + icon('calendar', 12) + esc(daysLabel(s.days)) + '</span></div>' +
+              '<div class="rp-actions">' + actions + '</div></div>' +
+            '<div class="rp-score">' + scoreRing(pctNum, r.status === 'passed', 'Performance') +
+              '<span class="sr-total"><b>' + r.totalScore + '</b> / ' + r.maxScore + ' points</span></div>' +
+          '</section>' +
+          (r.completedDays ? sessionBody(s, r) : '<div class="sr-empty">' + icon('info', 16) + '<p>No day of this session was finished, so there is nothing to report yet.</p></div>') +
+          '<p class="rp-formula">Each day: 45% customer satisfaction · 30% reply quality · 15% resolution rate · 10% wrap-up accuracy. ' +
+            'Session total = the sum of the day scores. Passed = every day ' + r.passScore + ' or more (the same mark as a single day). Easy and unfinished sessions have no pass/fail.</p>' +
+        '</main>' +
+      '</div>';
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const fg = $('.score-ring .fg');
+      if (fg) fg.style.strokeDashoffset = String(100 - pctNum);
+    }));
+  }
+
+  function sessionBody(s, r) {
+    const k = r.kpis;
+    const diff = SS.difficulty(s.difficulty);
+    const ratings = [[3, 'Excellent'], [2, 'Good'], [1, 'Needs work'], [0, 'Poor']];
+    const pctTxt = x => (x == null ? '—' : pct(x));
+    return '<section class="kpis k4">' +
+        kpi(0, 'calendar', 'Days completed', r.completedDays + ' / ' + r.plannedDays, r.perDay.filter(x => x.passed).length + ' at the pass mark') +
+        kpi(1, 'users', 'Customers served', r.completedScenarios + ' / ' + r.plannedScenarios, k.resolved + ' resolved · ' + k.unresolved + ' unresolved · ' + k.abandoned + ' left') +
+        kpi(2, 'chat', 'Replies sent', k.replies, k.byQ[3] + ' rated Excellent') +
+        kpi(3, 'target', 'Reply quality', pctTxt(k.acc), 'Versus the best answers') +
+        kpi(4, 'smile', 'Avg. CSAT', k.avgCsat.toFixed(1) + ' / 5', 'Customer satisfaction') +
+        kpi(5, 'file', 'Wrap-up accuracy', pctTxt(k.wrap), 'Correct resolution codes') +
+        kpi(6, 'zap', 'First response', secs(k.frt), 'Avg. time to first reply') +
+        kpi(7, 'timer', 'Avg. response', secs(k.art), 'Across all replies') +
+      '</section>' +
+      '<section class="sr-charts">' +
+        '<div class="sr-card"><div class="ch-h"><h3>Score by day</h3><span>Pass mark ' + r.passScore + '</span></div>' +
+          hbars(r.perDay.map(x => ({ label: 'Day ' + x.n, value: x.score, max: 100, text: x.score + '', tag: x.passed ? 'pass' : 'fail', title: 'Day ' + x.n + ' · ' + x.title + ': ' + x.score + ' points, ' + (x.passed ? 'at or above' : 'below') + ' the pass mark' })), r.passScore) +
+        '</div>' +
+        '<div class="sr-card"><div class="ch-h"><h3>Reply ratings</h3><span>' + k.replies + ' replies</span></div>' +
+          hbars(ratings.map(([q, label]) => ({ label, value: k.byQ[q], max: Math.max(1, k.replies), text: k.byQ[q] + ' · ' + (k.replies ? Math.round(100 * k.byQ[q] / k.replies) : 0) + '%', tone: 'q' + q, title: label + ': ' + k.byQ[q] + ' of ' + k.replies + ' replies' })), null) +
+        '</div>' +
+      '</section>' +
+      '<section class="sr-two">' +
+        insightCard('Strengths', 'checkCircle', 'good', r.strengths, 'No clear strength stands out yet in this session.') +
+        insightCard('Areas to improve', 'alert', 'warn', r.improve, 'Nothing fell below the bar in this session.') +
+      '</section>' +
+      (r.tips.length ? '<section class="sr-card sr-tips"><div class="ch-h"><h3>Recommendations</h3><span>Based on the results above</span></div><ul>' + r.tips.map(tipHTML).join('') + '</ul></section>' : '') +
+      (r.errors.length || r.wrapErrors.length ? '<div class="sec-h"><h2>Replies to review</h2><span>The weakest decisions of the session, with the coach note and the best reply</span></div>' +
+        '<section class="sr-errors">' + r.errors.map((e, i) => '<div class="sr-err"><div class="sr-err-h">' + avatarHTML({ name: e.customer }, 24) + '<b>' + esc(e.customer) + '</b><span>Day ' + e.day + ' · ' + esc(e.topic) + '</span></div>' + decHTML(e, i) + '</div>').join('') +
+        (r.wrapErrors.length ? '<div class="sr-card sr-wraps"><h3>' + icon('file', 15) + 'Wrap-up codes to review</h3><ul>' + r.wrapErrors.map(w =>
+          '<li><b>Day ' + w.day + ' · ' + esc(w.customer) + '</b><span>' + esc(w.topic) + '</span><span>Chose <b>' + esc(DISP[w.chosen] ? DISP[w.chosen].label : '—') + '</b> · expected <b>' + esc(w.expected.map(id => DISP[id].label).join(' or ')) + '</b></span></li>').join('') + '</ul></div>' : '') +
+        '</section>' : '') +
+      '<div class="sec-h"><h2>Results by day</h2><span>' + r.completedDays + ' of ' + r.plannedDays + ' days played</span></div>' +
+      '<div class="sr-table-wrap"><table class="sr-table"><thead><tr><th scope="col">Day</th><th scope="col">Level</th><th scope="col" class="num">Score</th><th scope="col">Result</th><th scope="col" class="num">Customers</th><th scope="col" class="num">Resolved</th><th scope="col" class="num">Left</th><th scope="col" class="num">CSAT</th><th scope="col" class="num">Quality</th><th scope="col" class="num">Wrap-up</th></tr></thead><tbody>' +
+        r.days.map(dd => {
+          const x = r.perDay.find(p => p.n === dd.n);
+          if (!x) return '<tr class="muted-row"><th scope="row">Day ' + dd.n + ' · ' + esc(dd.title) + '</th><td><span class="lvl lvl-' + dd.level.toLowerCase() + '">' + esc(dd.level) + '</span></td><td colspan="8">Not played</td></tr>';
+          return '<tr><th scope="row">Day ' + x.n + ' · ' + esc(x.title) + '</th><td><span class="lvl lvl-' + x.level.toLowerCase() + '">' + esc(x.level) + '</span></td>' +
+            '<td class="num"><b>' + x.score + '</b></td><td>' + (x.passed ? '<span class="tone-success">' + icon('check', 13) + 'Pass</span>' : '<span class="tone-danger">' + icon('x', 13) + 'Below 60</span>') + '</td>' +
+            '<td class="num">' + x.customers + '</td><td class="num">' + x.resolved + '</td><td class="num">' + x.abandoned + '</td><td class="num">' + x.avgCsat.toFixed(1) + '</td><td class="num">' + pct(x.acc) + '</td><td class="num">' + pct(x.wrap) + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+      '<section class="sr-card sr-incl"><div class="ch-h"><h3>What this session included</h3><span>Session code ' + s.seed.toString(36).toUpperCase() + '</span></div>' +
+        '<div class="sr-incl-g"><div><h4>Difficulty · ' + esc(diff.label) + '</h4><ul class="checks">' + diff.changes.map(t => '<li>' + icon('check', 14) + '<span>' + esc(t) + '</span></li>').join('') + '</ul></div>' +
+        '<div><h4>Days and customers</h4><ul class="sr-days">' + r.days.map(dd => '<li><b>Day ' + dd.n + ' · ' + esc(dd.title) + '</b>' + (dd.played ? '' : ' <span class="muted">(not played)</span>') + '<span>' +
+          D.scenarios.filter(x => x.day === dd.n).sort((a, b) => a.arrive - b.arrive).map(x => esc(x.customer.first + ' ' + x.customer.last)).join(' · ') + '</span></li>').join('') + '</ul></div></div>' +
+      '</section>' +
+      '<div class="sec-h"><h2>Conversation review</h2><span>Every reply of the session with coaching</span></div>' +
+      r.days.filter(dd => dd.played).map(dd => '<h3 class="sr-day-h">Day ' + dd.n + ' · ' + esc(dd.title) + '</h3><section class="rp-convs">' +
+        r.convs.filter(c => c.day === dd.n).map(c => convRow(c, false)).join('') + '</section>').join('');
+  }
+
+  // Horizontal bars: one hue, value written at the tip, optional reference line (pass mark)
+  function hbars(rows, ref) {
+    return '<div class="hbars" role="list">' + rows.map(x =>
+      '<div class="hb" role="listitem" title="' + esc(x.title) + '">' +
+        '<span class="hb-l">' + esc(x.label) + '</span>' +
+        '<span class="hb-t">' +
+          '<span class="hb-f' + (x.tone ? ' ' + x.tone : '') + '" style="width:' + (x.max ? Math.max(0, Math.min(100, 100 * x.value / x.max)) : 0).toFixed(1) + '%"></span>' +
+          (ref != null ? '<span class="hb-ref" style="left:' + ref + '%" aria-hidden="true"></span>' : '') +
+        '</span>' +
+        '<span class="hb-v">' + esc(x.text) + (x.tag === 'pass' ? icon('check', 13) : x.tag === 'fail' ? icon('x', 13) : '') + '</span>' +
+      '</div>').join('') + '</div>';
+  }
+
+  function insightCard(title, ic, tone, items, empty) {
+    return '<div class="sr-card sr-ins ' + tone + '"><div class="ch-h"><h3>' + icon(ic, 16) + esc(title) + '</h3></div>' +
+      (items.length ? '<ul>' + items.map(x => '<li><b>' + esc(x.title) + '</b><span>' + esc(x.detail) + '</span></li>').join('') + '</ul>' : '<p class="muted">' + esc(empty) + '</p>') + '</div>';
+  }
+
+  function tipHTML(t) {
+    const p = t.policy && D.policies[t.policy];
+    return '<li><span class="tip-ic">' + icon(p ? 'book' : 'sparkle', 15) + '</span><div><b>' + esc(t.title) + '</b><p>' + esc(t.detail) + '</p>' +
+      (p ? '<details class="tip-pol"><summary>Policy points</summary><ul>' + p.points.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></details>' : '') + '</div></li>';
   }
 
   /* =========================================================
@@ -1926,11 +2348,42 @@
         $('#brief .brief-card').classList.add('brief-in');
         break;
       }
-      case 'start': startShift(Number(t.dataset.day)); break;
+      case 'start': startSession([Number(t.dataset.day)], store.difficulty); break;
       case 'retry': startShift(Number(t.dataset.day)); break;
-      case 'next': ui.day = Number(t.dataset.day); startShift(ui.day); break;
+      case 'next': ui.day = Number(t.dataset.day); startSession([ui.day], ui.session ? ui.session.difficulty : store.difficulty); break;
       case 'lobby': renderLobby(); window.scrollTo(0, 0); break;
-      case 'unlock-all': store.unlockAll = true; saveStore(); renderLobby(); break;
+      case 'unlock-all': store.unlockAll = true; saveStore(); if (ui.view === 'setup') renderSetup(); else renderLobby(); break;
+      case 'setup': renderSetup(); break;
+      case 'su-all': ui.setup.days = D.days.filter(d => isUnlocked(d.n)).map(d => d.n); refreshSetup(); break;
+      case 'su-none': ui.setup.days = []; refreshSetup(); break;
+      case 'start-session': if (!startSession(ui.setup.days, ui.setup.difficulty)) refreshSetup(); break;
+      case 'session-next': {
+        // From a day report (the current session) or from a stored session report (resume it)
+        const s = ui.view === 'session' && ui.viewing ? ui.viewing : ui.session;
+        const n = s && SS.nextDay(s);
+        if (!n) break;
+        ui.session = s;
+        s.endedEarly = false;
+        rememberSession(s);
+        startShift(n);
+        break;
+      }
+      case 'session-report':
+        if (SS.nextDay(ui.session) != null) ui.session.endedEarly = true;
+        rememberSession(ui.session);
+        renderSessionReport(ui.session);
+        break;
+      case 'open-session': { const s = sessionById(t.dataset.id); if (s) renderSessionReport(s); break; }
+      case 'quick-diff': {
+        store.difficulty = SS.difficulty(t.dataset.diff).id;
+        saveStore();
+        $$('[data-act="quick-diff"]').forEach(b => { const on = b.dataset.diff === store.difficulty; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+        const d = SS.difficulty(store.difficulty);
+        const bl = $('#quickBlurb'), qn = $('#quickNote');
+        if (bl) bl.textContent = d.blurb;
+        if (qn) qn.innerHTML = quickNote(ui.day, d);
+        break;
+      }
       case 'reset-progress': openModal('reset'); break;
       case 'confirm-reset':
         store.progress = {}; store.unlockAll = false; saveStore();
@@ -1957,7 +2410,16 @@
       case 'settings': openModal('settings'); break;
       case 'exit': openModal('exit'); break;
       case 'resume': closeModal(); break;
-      case 'confirm-exit': closeModal(true); closeKB(); closeDoc(); E.quit(); renderLobby(); break;
+      case 'confirm-exit': {
+        closeModal(true); closeKB(); closeDoc(); E.quit();
+        const s = ui.session;
+        const played = s ? Object.keys(s.results).length : 0;
+        // A session with no finished day leaves no report behind
+        if (s && !played) { history = history.filter(x => x.id !== s.id); saveHistory(); ui.session = null; }
+        renderLobby();
+        if (played) toast({ title: 'Shift ended — not scored', body: 'Your session keeps the ' + played + ' finished day' + (played === 1 ? '' : 's') + '. Open it from Session reports to continue or see the report.', icon: 'info', ms: 5200 });
+        break;
+      }
       case 'toggle-details': toggleDetails(); break;
       case 'open-conv': closeDoc(); select(t.dataset.id, true); if (t.classList.contains('toast')) t.remove(); else hideAlarm(); break;
       case 'copy': {
@@ -1997,6 +2459,20 @@
   });
 
   document.addEventListener('change', e => {
+    // Session setup: day checkboxes and difficulty cards
+    if (ui.view === 'setup' && e.target.matches('input[data-su-day]')) {
+      const n = Number(e.target.dataset.suDay);
+      const days = ui.setup.days.filter(x => x !== n);
+      if (e.target.checked && isUnlocked(n)) days.push(n);
+      ui.setup.days = days.sort((a, b) => a - b);
+      refreshSetup();
+      return;
+    }
+    if (ui.view === 'setup' && e.target.name === 'suDiff') {
+      ui.setup.difficulty = SS.difficulty(e.target.value).id;
+      refreshSetup();
+      return;
+    }
     const key = e.target.dataset && e.target.dataset.setting;
     if (!key) return;
     if (key === 'dark') { store.theme = e.target.checked ? 'dark' : 'light'; saveStore(); applyTheme(); return; }
