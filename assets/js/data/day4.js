@@ -49,14 +49,14 @@ SR.scenario({
         { q: 3, t: "Hi Brandon, I'm really sorry — you paid for Express and it should have arrived by now, so I completely understand your frustration. Let me check exactly where it is.", go: 'where', fb: 'With an upset customer: acknowledge, validate, act. No excuses yet.' },
         { q: 0, t: "Please calm down, sir. I'm here to help.", retry: true, r: ["Don't tell me to calm down. Just tell me where my package is."], fb: 'Telling a customer to calm down almost always makes it worse.' },
         { q: 2, t: "I'm sorry for the delay. Let me check.", go: 'where', fb: 'OK. Validating his frustration a bit more would help.' },
-        { q: 1, t: 'Shipping delays are caused by the carrier, not by us.', retry: true, r: ["I don't care whose fault it is. I paid YOU."], fb: 'Deflecting blame sounds defensive. Own the experience.' }
+        { q: 1, t: "Hi Brandon, I understand why you're upset. Just so you know, shipping delays like this one are caused by the carrier, not by us — once a package leaves our warehouse it's in their hands. Let me take a look at where it is right now.", retry: true, r: ["I don't care whose fault it is. I paid YOU."], fb: 'Deflecting blame sounds defensive. Own the experience.' }
       ]
     },
     where: {
       c: ["It's for my daughter's birthday. The party is TOMORROW."],
       o: [
         { q: 3, t: "Thank you for waiting. Your package was held up by bad weather at the UPS hub in Memphis on Nov 2. It left Memphis last night, and the new estimated delivery is tomorrow, Nov 6, by end of day. I can't guarantee the exact time since it's with the carrier, but it's moving again.", go: 'fee', fb: "Specific, honest and realistic — you don't over-promise." },
-        { q: 0, t: 'Good news — it will definitely be there tomorrow morning, before the party.', retry: true, r: ["Definitely? Can you guarantee that? Because the last 'estimate' was wrong."], fb: 'Never guarantee a delivery time controlled by the carrier.' },
+        { q: 0, t: "Thank you for waiting, and I know how important tomorrow is. Your package was held up by bad weather at the UPS hub in Memphis, but it's moving again now. Good news — it will definitely be there tomorrow morning, before the party.", retry: true, r: ["Definitely? Can you guarantee that? Because the last 'estimate' was wrong."], fb: 'Never guarantee a delivery time controlled by the carrier.' },
         { q: 1, t: "It's delayed because of the weather.", go: 'fee', r: ['Ok and?? When will it get here?'], fb: 'Give the full picture: cause, where it is now, and the new ETA.' }
       ]
     },
@@ -66,7 +66,7 @@ SR.scenario({
         { q: 3, t: "You're right, and that's not fair. Since your Express delivery is late, I've refunded the $14.99 Express shipping fee to your Visa — you don't need to request it. I've also added a $10 store credit to your account for the trouble.", go: 'calm', fb: 'Applies policy proactively (late Express = fee refund) and uses goodwill within your $10 limit.' },
         { q: 0, t: "I've refunded your entire order — you can keep the projector for free.", retry: true, r: ['…really? Are you even allowed to do that?'], fb: 'Way outside policy. The fix is the Express fee refund (plus up to $10 goodwill).' },
         { q: 2, t: "I've refunded the $14.99 Express shipping fee.", go: 'calm', fb: 'Correct per policy. A small goodwill credit (up to $10) would help repair the relationship.' },
-        { q: 0, t: "Unfortunately weather delays are outside our control, so shipping fees aren't refundable.", retry: true, r: ["Your own website says express fees are refunded if it's late!"], fb: 'Policy: Express / Next-day fees are refunded when late — including carrier delays.' }
+        { q: 0, t: "I completely understand why you're frustrated, Brandon. Unfortunately, this delay was caused by bad weather at the UPS hub, which is outside our control, so the Express shipping fee isn't refundable in this case. The good news is that your package is moving again.", retry: true, r: ["Your own website says express fees are refunded if it's late!"], fb: 'Policy: Express / Next-day fees are refunded when late — including carrier delays.' }
       ]
     },
     calm: {
@@ -74,21 +74,21 @@ SR.scenario({
       o: [
         { q: 3, t: "If it hasn't arrived by tomorrow evening, message us and we'll open a carrier trace right away — I've added a note to your order so you won't have to explain everything again. I really hope it makes it in time for the party 🎉", go: 'close', fb: 'Clear backup plan, a note on the account, and a human touch.' },
         { q: 1, t: "Then you'll just have to wait a bit longer.", go: 'close_meh', fb: 'Leaves him without a plan. Explain the next steps.' },
-        { q: 2, t: "Just contact us and we'll look into it.", go: 'close', fb: 'OK. Being specific about the next step (a carrier trace) is more reassuring.' }
+        { q: 2, t: "If it hasn't arrived by tomorrow, just send us a message and we'll look into it straight away. I really hope it makes it in time for your daughter's birthday party — fingers crossed it's on your doorstep!", go: 'close', fb: 'OK. Being specific about the next step (a carrier trace) is more reassuring.' }
       ]
     },
     close: {
       c: ['Alright. Thanks for actually helping.'],
       o: [
         { q: 3, t: 'Of course, Brandon. Is there anything else I can help you with?', go: 'end', fb: 'Proper close.' },
-        { q: 2, t: 'No problem!', go: 'end_short', fb: "Fine — ask if there's anything else." }
+        { q: 2, t: "No problem at all, Brandon — I'm glad I could help, and I hope your daughter has a wonderful birthday tomorrow!", go: 'end_short', fb: "Fine — ask if there's anything else." }
       ]
     },
     close_meh: {
       c: ['Great. Very helpful. 🙄'],
       o: [
         { q: 3, t: "I'm sorry, let me be clearer: if it isn't there by tomorrow evening, message us and we'll open a carrier trace immediately — I've noted everything on your order so you won't need to explain again.", go: 'end_short', fb: 'Good recovery — you gave him the plan he needed.' },
-        { q: 1, t: "You're welcome.", go: 'end_cold', fb: 'He was being sarcastic. Read the tone and recover.' }
+        { q: 1, t: "You're very welcome, Brandon — glad I could help! Your package is on its way and moving again, so it should be with you soon. Thanks for your patience, and enjoy the rest of your day.", go: 'end_cold', fb: 'He was being sarcastic. Read the tone and recover.' }
       ]
     },
     end: { c: ["No, that's it. Thanks."], end: 'resolved' },
@@ -144,7 +144,7 @@ SR.scenario({
       c: ['This bot is useless. I want to return my chair.'],
       o: [
         { q: 3, t: "Hi Linda, I'm {agent}. I'm sorry the assistant couldn't help — I'm here now. I see the Velvet Accent Chair from order LM-478310. Can you tell me a bit more about what's going on with it?", go: 'reason', fb: "You start by listening. Whether it's defective or a preference changes what you can offer." },
-        { q: 0, t: "The assistant is right — it's outside the return window, sorry.", retry: true, r: ["Seriously? You didn't even ask me what happened."], fb: "Jumping straight to 'no' without listening escalates. Find out the reason first." },
+        { q: 0, t: "Hi Linda, I'm {agent}, and I'm sorry the assistant wasn't more helpful. I've looked at your order LM-478310, and unfortunately the assistant is right: the Velvet Accent Chair is outside our return window, so I'm not able to accept a return for it.", retry: true, r: ["Seriously? You didn't even ask me what happened."], fb: "Jumping straight to 'no' without listening escalates. Find out the reason first." },
         { q: 2, t: "Hello Linda, I can help with your return question. What's the issue with the chair?", go: 'reason', fb: 'Good. Acknowledging the bot frustration would help even more.' }
       ]
     },
@@ -152,7 +152,7 @@ SR.scenario({
       c: ["The color looks completely different in my living room. It's way darker than the pictures.", 'I want my money back.'],
       o: [
         { q: 3, t: "I'm sorry the color isn't what you expected — that's disappointing with a piece this size. I want to be honest with you: the chair was delivered on Sep 25, 41 days ago, and our return window is 30 days, so it closed on Oct 25. Since it isn't defective, I'm not able to process a return.", go: 'angry', fb: 'Empathetic, transparent and accurate about the dates — no false hope.' },
-        { q: 0, t: "No problem, I'll make an exception this time and process the return for you.", retry: true, r: ['Oh! Great… wait, the bot said I couldn\'t. Can you actually do that?'], fb: "Agents can't make exceptions outside the window — only a supervisor can review one." },
+        { q: 0, t: "I'm so sorry the color isn't what you expected — that's really disappointing with a piece this size, and I can see you've been a loyal customer for years. No problem: I'll make an exception this time and process the return for you right away, so you get your money back on your original card within a few days.", retry: true, r: ['Oh! Great… wait, the bot said I couldn\'t. Can you actually do that?'], fb: "Agents can't make exceptions outside the window — only a supervisor can review one." },
         { q: 0, t: 'Did you check the photos and the color description before buying?', retry: true, r: ['Excuse me? Are you saying this is MY fault?'], fb: "Sounds like you're blaming the customer." },
         { q: 2, t: "Unfortunately it's past the 30-day return window, so it can't be returned.", go: 'angry', fb: 'Correct. Empathy and the exact dates make it easier to accept.' }
       ]
@@ -170,8 +170,8 @@ SR.scenario({
       c: ['Fine. And they will actually contact me?'],
       o: [
         { q: 3, t: "Yes — you'll receive an email within 24 hours. Your case reference is ESC-55127. Is there anything else I can help you with in the meantime?", go: 'end', fb: 'Firm timeframe, a case reference and a proper close.' },
-        { q: 1, t: 'Probably, yes.', go: 'end_cold', fb: 'Sounds unsure. Give a firm timeframe and a case reference.' },
-        { q: 2, t: 'Yes, within 24 hours by email.', go: 'end', fb: 'Correct. A case reference adds confidence.' }
+        { q: 1, t: 'Probably, yes — the supervisors are usually pretty good about getting back to people, Linda, although it can depend on how busy they are this week. Keep an eye on your inbox over the next few days.', go: 'end_cold', fb: 'Sounds unsure. Give a firm timeframe and a case reference.' },
+        { q: 2, t: "Yes, they will. A supervisor will review everything I've noted on your case and get back to you by email within 24 hours, so you won't have to explain the situation again.", go: 'end', fb: 'Correct. A case reference adds confidence.' }
       ]
     },
     end: { c: ['No. Thank you.'], end: 'resolved' },
@@ -222,8 +222,8 @@ SR.scenario({
       c: ["Why was I charged $79?? I didn't buy anything this month"],
       o: [
         { q: 3, t: 'Hi Jamal, sorry for the surprise — let me check. The $79.00 charge on Oct 28 is the annual renewal of your Lumen Plus membership, which you first joined on Oct 28, 2023. A reminder email was sent on Oct 21.', go: 'cancel', fb: 'Identifies the charge precisely, with dates and the reminder.' },
-        { q: 0, t: 'You must have placed an order — please check your order history.', retry: true, r: ["I haven't ordered anything in weeks. Look it up please."], fb: "Check the account first — it's the Lumen Plus annual renewal." },
-        { q: 2, t: "Hi! That's your Lumen Plus annual renewal.", go: 'cancel', fb: 'Correct. Adding the date and the reminder email makes it clear.' }
+        { q: 0, t: "Hi Jamal, I'm sorry for the surprise! A $79 charge usually means an order went through, so you must have placed one recently — could you please check the order history in your account? It may have been a gift or something ordered from another device.", retry: true, r: ["I haven't ordered anything in weeks. Look it up please."], fb: "Check the account first — it's the Lumen Plus annual renewal." },
+        { q: 2, t: "Hi Jamal, sorry for the surprise, and thanks for reaching out about it! I've looked at your account, and that $79 charge is the yearly renewal of your Lumen Plus membership, which renews automatically each year.", go: 'cancel', fb: 'Correct. Adding the date and the reminder email makes it clear.' }
       ]
     },
     cancel: {
@@ -231,7 +231,7 @@ SR.scenario({
       o: [
         { q: 3, t: "Understood. Just so you know before I do it: in the last year Plus saved you about $65 in shipping across 7 orders. If $79 a year doesn't fit, there's also a monthly plan at $9.99. Would you like to keep either option, or shall I go ahead and cancel?", go: 'insist', fb: 'One respectful, personalized retention attempt — then let him decide.' },
         { q: 2, t: "Done — I've cancelled your Lumen Plus membership. Since it's been 8 days since the renewal and you haven't used any Plus benefits, you get a full refund of $79.00 to your Mastercard ending in 2210 within 5–7 business days.", go: 'done', fb: 'Correct and efficient. Many companies expect one light retention offer first — his savings data could have kept a customer.' },
-        { q: 0, t: 'Sorry, membership fees are non-refundable.', retry: true, r: ["Seriously? I haven't even used it."], fb: 'Wrong: within 14 days of renewal with no benefits used, it\'s a full refund.' },
+        { q: 0, t: "I completely understand, Jamal, and I can cancel the membership for you right away so it doesn't renew again next year. Unfortunately, membership fees are non-refundable once the renewal has gone through, so the $79 can't be returned to your Mastercard this time.", retry: true, r: ["Seriously? I haven't even used it."], fb: 'Wrong: within 14 days of renewal with no benefits used, it\'s a full refund.' },
         { q: 1, t: "Are you sure? You'll lose free Express shipping, free returns, early access to sales, exclusive deals…", go: 'insist', fb: 'A generic sales pitch. Personalize it with his usage — or simply respect the request.' }
       ]
     },
@@ -239,7 +239,7 @@ SR.scenario({
       c: ['No thanks. Just cancel it please.'],
       o: [
         { q: 3, t: "No problem at all. I've cancelled your Lumen Plus membership. Since it's been 8 days since the renewal and you haven't used any benefits, you get a full refund of $79.00 to your Mastercard ending in 2210 within 5–7 business days. You'll get a confirmation email shortly.", go: 'done', fb: 'Respects the decision and applies the refund policy precisely.' },
-        { q: 0, t: "Okay, it's cancelled, but the $79 isn't refundable since the renewal already went through.", retry: true, r: ["What? It's been a week and I haven't used it."], fb: 'He qualifies for a full refund: within 14 days and no benefits used.' },
+        { q: 0, t: "Okay — I've cancelled your Lumen Plus membership, so it won't renew and you won't be charged next year. Unfortunately the $79 isn't refundable since the renewal already went through, but you'll keep your Plus benefits until the end of this membership year.", retry: true, r: ["What? It's been a week and I haven't used it."], fb: 'He qualifies for a full refund: within 14 days and no benefits used.' },
         { q: 1, t: "Are you really sure? It's honestly a great deal.", retry: true, r: ["Yes. I'm sure. Cancel it."], fb: "Respect the 'no' — one retention attempt is enough." }
       ]
     },
@@ -248,7 +248,7 @@ SR.scenario({
       o: [
         { q: 3, t: 'Your Plus benefits end today since the renewal is refunded, but your account, order history and saved addresses stay exactly the same. You can rejoin anytime. Anything else I can help with?', go: 'end', fb: 'Clear about what changes and what stays.' },
         { q: 2, t: 'Just the Plus benefits. Anything else?', go: 'end', fb: 'Correct and short.' },
-        { q: 0, t: 'Your account and order history will be deleted too.', retry: true, r: ["What?! I didn't ask for that!"], fb: 'Wrong — only the Plus benefits end. The account and history stay.' }
+        { q: 0, t: 'Since the membership is cancelled and refunded, Jamal, your Plus benefits end today, and your account and order history will be deleted too as part of the cancellation. If you want to shop with us again later, you can always create a new account.', retry: true, r: ["What?! I didn't ask for that!"], fb: 'Wrong — only the Plus benefits end. The account and history stay.' }
       ]
     },
     end: { c: ['No that\'s it, thanks for sorting it out.'], end: 'resolved' }
@@ -300,29 +300,29 @@ SR.scenario({
         { q: 3, t: "Hi Chloe, I'm so sorry — that's our mistake. You ordered the Weekender Canvas Duffel in Tan, delivered yesterday, and our warehouse scan shows the olive one was picked by error. The tan one is in stock, so I can send it to you right away.", go: 'ship', fb: 'Owns the mistake, confirms it with the panel, and moves straight to the solution.' },
         { q: 0, t: 'Are you sure? The tan can look a bit green in some lighting.', retry: true, r: ["It's literally olive. The tag even says 'Olive'."], fb: "Don't question the customer — the warehouse scan even confirms the picking error." },
         { q: 2, t: 'Sorry about that! Let me look into it.', go: 'look', fb: 'OK. The panel already shows the picking error — you could confirm it right away.' },
-        { q: 0, t: 'Please return the olive bag and then place a new order for the tan one.', retry: true, r: ['Why should I pay again for YOUR mistake?'], fb: "Wrong item = free replacement. She shouldn't have to reorder or pay." }
+        { q: 0, t: "Hi Chloe, I'm so sorry about the mix-up — that's really frustrating with a trip coming up! The quickest fix is to return the olive bag with the label in your account and then place a new order for the tan one, which is in stock right now, so it can head your way.", retry: true, r: ['Why should I pay again for YOUR mistake?'], fb: "Wrong item = free replacement. She shouldn't have to reorder or pay." }
       ]
     },
     look: {
       c: [],
       o: [
         { q: 3, t: "Thanks for waiting! I can see our warehouse picked the olive bag by mistake. The tan one is in stock, so I'll send it to you right away.", go: 'ship', fb: 'Confirms the error and offers the fix.' },
-        { q: 0, t: 'It looks like you ordered the olive one.', retry: true, r: ['No, I ordered TAN. Check again please.'], fb: 'Read the order: she ordered Tan (WD-TAN).' }
+        { q: 0, t: 'Thanks for waiting! It looks like you ordered the olive one, which is what our warehouse sent you.', retry: true, r: ['No, I ordered TAN. Check again please.'], fb: 'Read the order: she ordered Tan (WD-TAN).' }
       ]
     },
     ship: {
       c: ['Will it get here before Sunday though?'],
       o: [
         { q: 3, t: "It will — since this was our error, I've upgraded the replacement to Next-day shipping at no cost. It's before 2 PM, so it ships today and arrives tomorrow, Friday Nov 6. Your replacement order is LM-484115.", go: 'return', fb: 'Uses the policy option (free Next-day upgrade for our error) to meet her real need.' },
-        { q: 1, t: 'Replacements ship with free Express, which takes 2–3 business days.', retry: true, r: ["2–3 business days? That's Monday at the earliest… my trip is Sunday 😩"], fb: 'Express would arrive after Sunday. Policy allows a free Next-day upgrade when it\'s our error and she needs it sooner.' },
-        { q: 0, t: "Yes, it'll be there Saturday for sure.", retry: true, r: ['For sure? How do you know?'], fb: "Don't guess delivery dates — use the shipping policy." }
+        { q: 1, t: "Great question, Chloe! Since this was our mistake, your replacement ships today with free Express shipping, which takes 2–3 business days. You'll get the tracking number by email shortly, and your replacement order number is LM-484115.", retry: true, r: ["2–3 business days? That's Monday at the earliest… my trip is Sunday 😩"], fb: 'Express would arrive after Sunday. Policy allows a free Next-day upgrade when it\'s our error and she needs it sooner.' },
+        { q: 0, t: "Yes, it'll be there on Saturday for sure! The replacement ships out from our warehouse today, so you'll have the tan duffel in plenty of time to pack it for your trip on Sunday — you'll get the tracking by email.", retry: true, r: ['For sure? How do you know?'], fb: "Don't guess delivery dates — use the shipping policy." }
       ]
     },
     return: {
       c: ['Perfect!! What do I do with the olive one?'],
       o: [
         { q: 3, t: "I've emailed you a prepaid return label. Just drop the olive bag at any UPS location within 30 days — no cost to you.", go: 'close', fb: 'Clear, free and with the deadline.' },
-        { q: 1, t: 'Just keep it!', retry: true, r: ["Really? A $78 bag? That's generous… are you sure?"], fb: 'Items $25 and over must be returned with the free label. Only items under $25 can be kept.' },
+        { q: 1, t: "Good news, Chloe — you don't need to send anything back! Just keep the olive bag or give it to a friend; there's no need to deal with a return label.", retry: true, r: ["Really? A $78 bag? That's generous… are you sure?"], fb: 'Items $25 and over must be returned with the free label. Only items under $25 can be kept.' },
         { q: 2, t: "Please send it back with the prepaid label I've emailed you.", go: 'close', fb: "Correct. Mentioning the 30-day window and that it's free helps." }
       ]
     },
@@ -330,7 +330,7 @@ SR.scenario({
       c: ['Great, thanks for fixing it so fast! 🙌'],
       o: [
         { q: 3, t: 'Happy to help, Chloe — enjoy your trip! Is there anything else I can do for you?', go: 'end', fb: 'Personal and complete.' },
-        { q: 2, t: 'No problem!', go: 'end_short', fb: "Fine — ask if there's anything else." }
+        { q: 2, t: 'No problem at all, Chloe — sorry again about the mix-up! The tan duffel is on its way. Have a fantastic trip on Sunday!', go: 'end_short', fb: "Fine — ask if there's anything else." }
       ]
     },
     end: { c: ["That's all! Have a nice day"], end: 'resolved' },
@@ -390,7 +390,7 @@ SR.scenario({
       c: [],
       o: [
         { q: 3, t: "Hi Victor, I'm {agent}. Sorry about the battery — going from 3 days to 4 hours definitely isn't normal. Your Pulse Fit S2 was delivered on Aug 3, so it's covered by the 1-year warranty. Before we go that route, could you check which software version it's on? Settings › About › Software.", go: 'version', fb: "Reassures him about the warranty and starts proper troubleshooting — without repeating the bot's restart tip." },
-        { q: 0, t: "The return window for electronics is 15 days, so unfortunately I can't help with this one.", retry: true, r: ["It's 3 months old and broken. There's no warranty??"], fb: 'The return window closed, but the 1-year warranty covers defects. Always check the warranty.' },
+        { q: 0, t: "Hi Victor, I'm {agent}, and I'm sorry about the battery — going from 3 days to 4 hours is really frustrating. I've checked your order: your Pulse Fit S2 was delivered on Aug 3, and the return window for electronics is 15 days, so unfortunately there's nothing I can do for this one.", retry: true, r: ["It's 3 months old and broken. There's no warranty??"], fb: 'The return window closed, but the 1-year warranty covers defects. Always check the warranty.' },
         { q: 2, t: "Hi Victor, let's try some troubleshooting first. Could you check the software version on the watch?", go: 'version', fb: "Good. Reassuring him that it's under warranty would lower his stress." },
         { q: 1, t: "I'll ship you a brand-new watch today.", retry: true, r: ['Oh nice… without checking anything? Ok…'], fb: 'Policy: troubleshoot first. Warranty replacements ship once the defective unit is received (advance replacement is only for Lumen Plus).' }
       ]
@@ -400,7 +400,7 @@ SR.scenario({
       o: [
         { q: 3, t: "Thanks — that's very likely the cause. Version 2.1.x has a known battery-drain bug that's fixed in 2.3.0. Could you update it? Open the Pulse app on your phone › Device › Software update, and keep the watch on the charger during the update (about 10 minutes).", go: 'updated', fb: 'Uses the known-issue note to find the real fix, with clear steps.' },
         { q: 1, t: 'Okay, please do a factory reset on the watch.', retry: true, r: ['A factory reset will wipe everything… is that really necessary?'], fb: 'Check known issues first: 2.1.x has a battery bug fixed in 2.3.0 — a much less disruptive fix.' },
-        { q: 0, t: "That's the latest version, so it must be a hardware problem.", retry: true, r: ['Is it? The app mentioned an update a while ago…'], fb: 'The latest version is 2.3.0 — check the product panel.' }
+        { q: 0, t: "Thanks for checking! 2.1.4 is the latest software version for the Pulse Fit S2, so the software is up to date and this must be a hardware problem with the battery. Since you're within the 1-year warranty, we can look at a replacement watch for you.", retry: true, r: ['Is it? The app mentioned an update a while ago…'], fb: 'The latest version is 2.3.0 — check the product panel.' }
       ]
     },
     updated: {
@@ -408,14 +408,14 @@ SR.scenario({
       o: [
         { q: 3, t: 'Great! Charge it to 100% and use it as normal today. If the battery still drains fast by tomorrow, message us with reference WR-30481 and we\'ll start the warranty replacement right away: we\'ll email a prepaid label and ship a new watch the same day we receive yours.', go: 'close', fb: 'Clear test plan, a reference number, and the exact warranty process as a backup.' },
         { q: 2, t: 'Just use it as normal and let us know if it happens again.', go: 'close', fb: "Give him a reference and explain the warranty next step so he won't start over." },
-        { q: 0, t: "If it happens again you'll need to contact the manufacturer for warranty.", retry: true, r: ["I bought it from you though. Can't you handle it?"], fb: 'Lumen & Co. handles warranty claims for products it sells.' }
+        { q: 0, t: "Great, thanks for updating it, Victor! Charge it to 100% and use it as normal today. If the battery still drains fast after that, you'll need to contact Pulse, the manufacturer, for a warranty replacement — they handle all hardware repairs directly and will walk you through it.", retry: true, r: ["I bought it from you though. Can't you handle it?"], fb: 'Lumen & Co. handles warranty claims for products it sells.' }
       ]
     },
     close: {
       c: ['ok cool. thanks for actually fixing it instead of just saying restart lol'],
       o: [
         { q: 3, t: "Haha, happy to help! Fingers crossed the battery's back to normal. Anything else I can help you with today?", go: 'end', fb: 'Matches his tone and closes properly.' },
-        { q: 2, t: 'No problem!', go: 'end', fb: 'Fine.' }
+        { q: 2, t: 'No problem — glad the update did the trick! Enjoy the watch.', go: 'end', fb: 'Fine.' }
       ]
     },
     end: { c: ['nope, all good 👍'], end: 'resolved' }
@@ -473,7 +473,7 @@ SR.scenario({
       o: [
         { q: 3, t: "Hi, I'm {agent} — I'm here to help and we'll act quickly. First I need to confirm you're the account owner: could you share your full name, the phone number on the account and your billing ZIP code?", go: 'verify', fb: "Calm, fast, and verifies with details an attacker hasn't changed." },
         { q: 0, t: "What's the new email on the account? I'll tell you if it matches.", retry: true, r: ["I don't know the new email, that's the whole problem!!"], fb: 'Never discuss account details before verification.' },
-        { q: 1, t: "Try resetting your password with the 'Forgot password' link.", retry: true, r: ["I tried! The reset goes to an email that isn't mine anymore 😭"], fb: "The email was changed, so self-service won't work. This needs verification and escalation." },
+        { q: 1, t: "Hi Olivia, I'm {agent}, and I'm sorry — that must be really scary. The quickest way back in is to reset your password with the 'Forgot password' link on the sign-in page. It only takes a minute, and then you can change anything that looks wrong.", retry: true, r: ["I tried! The reset goes to an email that isn't mine anymore 😭"], fb: "The email was changed, so self-service won't work. This needs verification and escalation." },
         { q: 1, t: "Oh no! What's the email address on your account?", retry: true, r: ['olivia.turner@gmail.com — but I think someone changed it?? 😰'], fb: "The email was just changed by someone else, so it can't verify her. Use the phone on file and billing ZIP (pre-change details)." }
       ]
     },
@@ -481,7 +481,7 @@ SR.scenario({
       c: ['Olivia Turner. Phone is 615-555-0156 and zip is 37203'],
       o: [
         { q: 3, t: "Thank you, Olivia — you're verified. Someone changed the password and email on your account early this morning and placed an order for $331.67 to be shipped to Newark, NJ. I'm escalating this to our Trust & Safety team right now, and your account is being locked so no more changes can be made.", go: 'order', fb: 'Verified with pre-change details, explains what you see, and escalates to the right team immediately.' },
-        { q: 0, t: "Thanks! I've changed the email back to olivia.turner@gmail.com, so you're all set.", retry: true, r: ['Oh thank god. Wait… can you do that from a chat? Is my account safe now?'], fb: "Agents can't change emails in chat. Suspected takeovers go to Trust & Safety, who lock and restore the account." },
+        { q: 0, t: "Thank you, Olivia — you're verified. I can see someone changed the email on your account early this morning, so I've changed the email back to olivia.turner@gmail.com. You can now use 'Forgot password' to choose a new password and sign in again within a few minutes, so you're all set.", retry: true, r: ['Oh thank god. Wait… can you do that from a chat? Is my account safe now?'], fb: "Agents can't change emails in chat. Suspected takeovers go to Trust & Safety, who lock and restore the account." },
         { q: 2, t: "Thanks. This looks like unauthorized access, so I'm sending it to our security team.", go: 'order', fb: 'Correct action. Telling her what you see (and that the account is locked) reassures her.' }
       ]
     },
@@ -491,14 +491,14 @@ SR.scenario({
         { q: 3, t: "Yes — it's still processing and hasn't shipped, so Trust & Safety will cancel it as part of the case and you won't be charged. They'll call you at 615-555-0156 within 2 hours to restore your account. In the meantime, I'd recommend changing your email password too, in case it was compromised.", go: 'close', fb: 'Clear outcome, who will contact her, how and when — plus a useful security tip.' },
         { q: 1, t: "You'll need to contact your bank to dispute the charge.", retry: true, r: ["But it hasn't even shipped? Can't you just stop it?"], fb: 'The order is still Processing — it can be cancelled before any charge. No dispute needed.' },
         { q: 2, t: "Yes, it'll be cancelled since it hasn't shipped.", go: 'close', fb: 'Correct. Share the timeline (2 hours) and how they will contact her.' },
-        { q: 0, t: "It'll be cancelled, but your card will still be charged and refunded in 5–7 days.", retry: true, r: ['Charged?? Why would I be charged for something I didn\'t order?'], fb: 'Customers are only charged when an order ships. This one is still Processing.' }
+        { q: 0, t: "Yes — that order is still processing, so Trust & Safety will cancel it as part of the case and it won't ship to Newark. Your card will still be charged for it when it's processed, but the $331.67 will be refunded automatically within 5–7 days, so you won't lose any money in the end.", retry: true, r: ['Charged?? Why would I be charged for something I didn\'t order?'], fb: 'Customers are only charged when an order ships. This one is still Processing.' }
       ]
     },
     close: {
       c: ['Ok… thank you so much. I was panicking 😮‍💨'],
       o: [
         { q: 3, t: 'Totally understandable — you did the right thing by contacting us right away. Your case number is TS-90233. Is there anything else I can help you with right now?', go: 'end', fb: 'Reassuring, gives a case number and closes properly.' },
-        { q: 2, t: "You're welcome. Anything else?", go: 'end', fb: 'Fine. A case number would add confidence.' }
+        { q: 2, t: "You're very welcome, Olivia — it's completely understandable to panic when something like this happens, and you did the right thing. Is there anything else I can help you with right now?", go: 'end', fb: 'Fine. A case number would add confidence.' }
       ]
     },
     end: { c: ['No, thank you for acting so fast.'], end: 'resolved' }

@@ -59,7 +59,14 @@ Haz doble clic en `index.html`. No necesita instalar nada. Funciona en computado
   `assets/img/products/CREDITS.md`.
 - **Wrap-up:** al terminar cada chat eliges el código de resolución y cierras la conversación.
 - **Días:** 5 niveles (3 → 7 clientes). Con 60 puntos pasas al siguiente día.
+- **Sesión de entrenamiento:** "Set up a training session" permite elegir varios días (o todos los
+  desbloqueados) y la dificultad; los días se juegan seguidos. "Start shift" juega un solo día.
+- **Dificultad:** Fácil (menos presión, coach siempre visible, es práctica: no desbloquea días),
+  Intermedio (la simulación de siempre) y Difícil (más presión, más chats a la vez, sin coach hasta el
+  informe). Los casos y la puntuación son los mismos en los tres. Detalle en `docs/sesiones-y-dificultad.md`.
 - **Reporte:** al final del día ves cada respuesta que diste, la nota del coach y la mejor respuesta.
+  Al terminar la sesión, un informe de toda la sesión (puntos, estado, indicadores, gráficos,
+  fortalezas, áreas de mejora y errores). Se guarda mientras la pestaña esté abierta ("Session reports").
 
 Atajos: `Alt`+`↓/↑` cambia de chat · `K` base de conocimiento · `P` pausa · `Esc` cierra paneles.
 
@@ -76,9 +83,11 @@ Atajos: `Alt`+`↓/↑` cambia de chat · `K` base de conocimiento · `P` pausa 
 | `assets/audio/` | Copias de los sonidos ya recortados |
 | `assets/img/` | Logo (versiones para la interfaz, la animación y el ícono de pestaña) |
 | `assets/js/engine.js` | Reloj, "typing…", paciencia y puntuación (también se puede usar desde Node.js) |
+| `assets/js/session.js` | Sesiones: dificultades, validación de la configuración e informe de sesión |
 | `assets/js/ui.js` | Toda la interfaz |
 | `assets/css/app.css` | Estilos |
 | `tools/validate-scenarios.js` | Validador de los casos |
+| `tools/answer-patterns.js` | Mide si alguna pista superficial (longitud, nombre…) delata la mejor respuesta |
 | `tools/browser-sandbox.js` | Carga los archivos del navegador en Node.js, sin navegador |
 | `tests/` | Pruebas automáticas del motor y de los casos |
 | `docs/fase-0-motor.md` | Cómo funciona el motor por dentro y qué cubren las pruebas |
@@ -108,6 +117,8 @@ npm run validate
   referencia a un nodo que no existe, una nota fuera de 0–3…) y **advertencias** (funciona, pero conviene
   revisarlo). Termina con código 1 si hay errores. Con `--json` da el resultado en formato JSON:
   `node tools/validate-scenarios.js --json`.
+- `npm run patterns` comprueba que ninguna regla superficial («la más larga», «la que usa el nombre»…)
+  acierte la mejor respuesta mucho más que elegir al azar. Si editas respuestas, ejecútalo.
 - `tests/fixtures/engine-golden.json` guarda cómo se comporta hoy el motor en 20 turnos completos. Si cambias
   a propósito una regla o un caso, la prueba `golden` fallará: revisa que el cambio sea el esperado y vuelve a
   grabarla con `UPDATE_GOLDEN=1 npm test` (en PowerShell: `$env:UPDATE_GOLDEN=1; npm test; Remove-Item Env:UPDATE_GOLDEN`).

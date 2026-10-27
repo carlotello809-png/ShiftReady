@@ -3,7 +3,9 @@
    The UI listens through SR.engine.hooks. Everything runs on a pausable game clock.
    createEngine() makes an independent engine: the browser creates one for the page
    (SR.engine, driven every 100 ms); Node.js can require this file and create its own,
-   passing the data and, optionally, its own clock (now) and random source (random). */
+   passing the data and, optionally, its own clock (now) and random source (random).
+   startDay(n, { pace, seed }) can make a shift calmer or tougher (pace) and repeatable (seed);
+   without them a shift runs exactly as it always has. */
 (function (root) {
   'use strict';
 
@@ -14,12 +16,35 @@
   // Below this patience the customer counts as "Angry"
   const ANGRY_AT = 20;
 
+  // Pressure of a shift, as multipliers (1 = the standard simulation):
+  //   decay  how fast waiting customers lose patience
+  //   arrive spacing between customer arrivals (lower = more chats at once)
+  //   reply  how long customers take to answer you (lower = they come back sooner)
+  function paceOf(p) {
+    const out = { decay: 1, arrive: 1, reply: 1 };
+    if (p) Object.keys(out).forEach(k => { const v = p[k]; if (typeof v === 'number' && isFinite(v) && v > 0) out[k] = v; });
+    return out;
+  }
+
+  // Same seed → same sequence (mulberry32): option order and timings repeat exactly
+  function seededRandom(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
   function createEngine(opts) {
     opts = opts || {};
     const D = opts.data;
     if (!D) throw new Error('[ShiftReady] createEngine needs opts.data (SR.data)');
     const readClock = opts.now || (() => performance.now());
-    const random = opts.random || (() => Math.random());
+    const baseRandom = opts.random || (() => Math.random());
+    let random = baseRandom;       // a shift started with a seed uses its own sequence
 
     const E = { st: null, hooks: {}, settings: {}, activeId: null, lastTs: 0 };
 
@@ -53,10 +78,14 @@
     E.fill = fill;
 
     /* ---------- shift lifecycle ---------- */
-    E.startDay = function (n) {
+    // o.pace: see paceOf() · o.seed: number for a repeatable shift
+    E.startDay = function (n, o) {
+      o = o || {};
       const day = D.days.find(d => d.n === n);
       const scs = D.scenarios.filter(s => s.day === n).sort((a, b) => a.arrive - b.arrive);
-      const st = E.st = { day, n, clock: 0, queue: [], seq: 0, mid: 0, paused: false, running: true, ended: false, convs: [] };
+      const seed = typeof o.seed === 'number' && isFinite(o.seed) ? o.seed >>> 0 : null;
+      random = seed == null ? baseRandom : seededRandom(seed);
+      const st = E.st = { day, n, clock: 0, queue: [], seq: 0, mid: 0, paused: false, running: true, ended: false, convs: [], pace: paceOf(o.pace), seed };
       st.convs = scs.map((sc, i) => ({
         id: sc.id, sc, idx: i,
         persona: D.personas[sc.persona] || D.personas.neutral,
@@ -73,7 +102,7 @@
       }));
       E.activeId = null;
       // small lead-in so the agent sees an empty inbox for a moment
-      st.convs.forEach(c => schedule(1200 + c.sc.arrive * 1000, () => arrive(c)));
+      st.convs.forEach(c => schedule(1200 + c.sc.arrive * 1000 * st.pace.arrive, () => arrive(c)));
       E.lastTs = readClock();
       emit('start', st);
     };
@@ -120,7 +149,7 @@
       const st = E.st;
       for (const c of st.convs) {
         if (c.status !== 'agent') continue;
-        const rate = st.day.decay * c.persona.decay * (c.sc.decay || 1);
+        const rate = st.day.decay * c.persona.decay * (c.sc.decay || 1) * st.pace.decay;
         const before = c.patience;
         c.patience = Math.max(0, c.patience - rate * dt / 1000);
         // The moment a waiting customer turns angry, the UI raises the alarm
@@ -187,7 +216,7 @@
     // Seconds this customer usually takes to answer after the agent writes
     // (each customer has their own pace; every reply varies ±20%, never more than 30s).
     const MAX_REPLY_DELAY = 30000;
-    function replyIn(c) { return c.sc.replyIn || c.persona.replyIn || 15; }
+    function replyIn(c) { return (c.sc.replyIn || c.persona.replyIn || 15) * (E.st ? E.st.pace.reply : 1); }
     E.replyIn = replyIn;
     function replyDelay(c) { return Math.min(MAX_REPLY_DELAY, replyIn(c) * 1000 * rand(0.8, 1.2)); }
 

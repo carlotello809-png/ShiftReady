@@ -211,7 +211,7 @@
           "dispOk": false
         }
       },
-      "trace": "500ecf9ff08c36a35fe42486a9d625dde5bb850502b1330dd88b9514df2283b1",
+      "trace": "871a575534523b61d42d263988187ab33b391e695028967a1edb47761b41ac06",
       "errors": 0
     },
     "day1/slow": {
@@ -620,7 +620,7 @@
           "dispOk": false
         }
       },
-      "trace": "d310cf8213d7bc78cfbbf1bdb224571bf2f58d09a1a99755bafc773bbd166f19",
+      "trace": "fdcff53d9aff16054a9fe3bd97013c9ee52fa0ce6c756d806750b9a27e8c68af",
       "errors": 0
     },
     "day2/slow": {
@@ -1116,7 +1116,7 @@
           "dispOk": false
         }
       },
-      "trace": "090ecd9f0dd13cb4af59cea2eb2701d785f46edf0eac9c516612702ba938fc89",
+      "trace": "5e0160754f46034754056c3235bfbb2655116c1b0cbf64735d37d6cc44fbcd45",
       "errors": 0
     },
     "day3/slow": {
@@ -1735,7 +1735,7 @@
           "dispOk": false
         }
       },
-      "trace": "ef74979705c8283ca46ba34f7680d342bccd430d26045a03b36b9e3fd1286754",
+      "trace": "18418eea2275680a31a9c86b6403ec5d1e1b7d5a5eb5975e5ff200d7d7595b23",
       "errors": 0
     },
     "day4/slow": {
@@ -2413,7 +2413,7 @@
           "dispOk": false
         }
       },
-      "trace": "a82aa6ccf795bca35b818ec18fee014e3671dc52535794db87ce4944a0bf661a",
+      "trace": "5a3856f68496a7ff9783b1f6ebd16499d65095dee48d98302a821bd83b0da79a",
       "errors": 0
     },
     "day5/slow": {

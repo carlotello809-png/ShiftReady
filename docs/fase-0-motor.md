@@ -26,7 +26,7 @@ en el código y en las pruebas automáticas (`npm test`).
 
 | Función / propiedad | Entrada | Efecto / salida |
 | --- | --- | --- |
-| `startDay(n)` | número de día | Crea `E.st` (estado del turno) y programa las llegadas a `1,2 s + arrive`. Emite `start`. |
+| `startDay(n, { pace, seed })` | número de día; opcional: multiplicadores de ritmo y semilla | Crea `E.st` (estado del turno) y programa las llegadas a `1,2 s + arrive`. Sin opciones, todo como antes. Ver `docs/sesiones-y-dificultad.md`. Emite `start`. |
 | `tick()` | — | Avanza el reloj del juego con el tiempo real transcurrido (máx. 500 ms por llamada), procesa la cola de eventos y la paciencia. El navegador lo llama cada 100 ms. |
 | `setPaused(p)` | booleano | Congela o reanuda el reloj. No hace nada sin turno o con el turno terminado. Emite `pause`. |
 | `select(id, i)` | chat, índice de opción | Marca la opción (`c.selected`) si es el turno del agente y no se usó. |

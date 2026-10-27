@@ -42,8 +42,8 @@ SR.scenario({
       c: ["Hi! I bought a wool coat and it's too small 😩", 'Can I exchange it for a size M?'],
       o: [
         { q: 3, t: "Hi Sofia! Sorry the coat didn't fit — let's fix that. I can see your Everyday Wool Coat in size S, delivered on Oct 27, so you're well within the 30-day return window. Let me check size M for you.", go: 'stock', fb: 'Empathy, then confirms the item, delivery date and eligibility before checking stock.' },
-        { q: 0, t: "Of course! I'll send you a size M right away and email you a free return label for the S.", retry: true, r: ['Really?! Awesome. Wait… the app says M is sold out. Is it actually available?'], fb: 'You promised an exchange without checking stock — size M is out of stock until Nov 17.' },
-        { q: 2, t: 'Hi Sofia, sure — let me check if we have size M.', go: 'stock', fb: "Good. Confirming the order and that she's within the window shows you've reviewed her account." },
+        { q: 0, t: "Of course, Sofia — sorry it didn't fit! Exchanges are easy: I'll send you a size M right away and email you a free prepaid return label for the size S, so you can swap them at your own pace. You should have the new coat in a few days.", retry: true, r: ['Really?! Awesome. Wait… the app says M is sold out. Is it actually available?'], fb: 'You promised an exchange without checking stock — size M is out of stock until Nov 17.' },
+        { q: 2, t: "Hi Sofia, oh no, I'm sorry the coat is too small! Sure, exchanging it for a size M should be no problem at all — let me check right now whether we have size M available in the same lovely color for you.", go: 'stock', fb: "Good. Confirming the order and that she's within the window shows you've reviewed her account." },
         { q: 0, t: 'Unfortunately clothing can only be exchanged within 7 days of delivery.', retry: true, r: ["7 days? I'm pretty sure it's 30… I've exchanged things before."], fb: 'Incorrect. Apparel can be returned or exchanged within 30 days of delivery. (7 days is the window for reporting damage.)' }
       ]
     },
@@ -60,22 +60,22 @@ SR.scenario({
       c: [],
       o: [
         { q: 3, t: "Actually, yes! Size M is expected back on Nov 17 and your return window is open until Nov 26. I can set up a back-in-stock alert so you can exchange it as soon as it's back. Would you like that?", go: 'choice', fb: 'Good recovery — you found the option that keeps her happy.' },
-        { q: 0, t: "No, sorry, that's the only option.", go: 'end_refund', fb: 'A dead end. The restock date (Nov 17) was inside her return window.' }
+        { q: 0, t: "I'm so sorry, Sofia — I know you love the color. Since size M is out of stock, the only option I have is to return the coat for a refund. I'll email you the return instructions, and your refund will be processed as soon as it reaches our warehouse.", go: 'end_refund', fb: 'A dead end. The restock date (Nov 17) was inside her return window.' }
       ]
     },
     choice: {
       c: ["Yes! I'll wait for the M 😊", 'Will the exchange cost me anything?'],
       o: [
         { q: 3, t: "Not at all! I've set up a back-in-stock alert for size M. When you get the alert, message us and we'll send a free prepaid label for the exchange. Just keep the coat unworn with the tags on until then.", go: 'close', fb: 'Accurate (exchanges get a free label), clear next steps, and a reminder about the condition rules.' },
-        { q: 0, t: "Yes, there's a $6.95 return shipping fee that's deducted for exchanges.", retry: true, r: ["For an exchange too? That's not what the website says…"], fb: 'The $6.95 fee is for change-of-mind returns for refund — size exchanges get a free label.' },
-        { q: 2, t: "No, exchanges are free. I've set up the alert for you.", go: 'close', fb: 'Correct. Telling her the next step and to keep the tags on would make it complete.' }
+        { q: 0, t: "Good question! There's a small $6.95 return shipping fee for exchanges, which is simply deducted from your order total — everything else is free. I've also set up a back-in-stock alert for size M, so you'll know the moment it's back.", retry: true, r: ["For an exchange too? That's not what the website says…"], fb: 'The $6.95 fee is for change-of-mind returns for refund — size exchanges get a free label.' },
+        { q: 2, t: "No, not at all, Sofia — size exchanges are completely free of charge, so you won't pay anything for the swap or the shipping. I've set up the back-in-stock alert for size M for you, so you'll know as soon as it's available again.", go: 'close', fb: 'Correct. Telling her the next step and to keep the tags on would make it complete.' }
       ]
     },
     close: {
       c: ['Perfect, thank you so much {agent}! 💛'],
       o: [
         { q: 3, t: "You're so welcome, Sofia! Enjoy the coat once your size is back. Is there anything else I can help you with?", go: 'end', fb: 'Warm and complete.' },
-        { q: 2, t: 'Happy to help! Have a great day.', go: 'end_short', fb: "Friendly — remember to ask if there's anything else." },
+        { q: 2, t: "Happy to help, Sofia! Your back-in-stock alert is all set, so you'll hear from us as soon as size M is back. Thanks for shopping with Lumen & Co. and have a great day!", go: 'end_short', fb: "Friendly — remember to ask if there's anything else." },
         { q: 1, t: 'np', go: 'end_short', fb: 'Too casual for a brand chat.' }
       ]
     },
@@ -133,8 +133,8 @@ SR.scenario({
       c: ["your promo code doesn't work", "FALL20. it keeps saying 'not eligible'. tried 3 times"],
       o: [
         { q: 3, t: 'Hi Kevin, sorry for the hassle! Let me look at your cart and the FALL20 code right now.', go: 'why', fb: "Acknowledges the frustration and acts quickly — he's impatient." },
-        { q: 1, t: 'Did you type it correctly? Codes are case-sensitive, so make sure it is all capitals.', retry: true, r: ["yes I typed it correctly. I'm not an idiot."], fb: 'Implies user error before checking anything. Look at the promotion terms first.' },
-        { q: 2, t: 'Hello! Let me check that code for you.', go: 'why', fb: 'Fine. A touch of empathy helps with an impatient customer.' }
+        { q: 1, t: "Hi Kevin, sorry it's being difficult! Before I dig in, could you double-check that you typed it correctly? Codes are case-sensitive, so make sure FALL20 is all in capitals with no spaces before or after it.", retry: true, r: ["yes I typed it correctly. I'm not an idiot."], fb: 'Implies user error before checking anything. Look at the promotion terms first.' },
+        { q: 2, t: "Hello! Thanks for contacting Lumen & Co. customer care. Let me check the FALL20 code and the items in your cart for you now, and I'll let you know what I find in just a moment.", go: 'why', fb: 'Fine. A touch of empathy helps with an impatient customer.' }
       ]
     },
     why: {
@@ -150,15 +150,15 @@ SR.scenario({
       c: ["ugh. so I just don't get a discount?"],
       o: [
         { q: 3, t: "You can! You're only $13 away from the $75 minimum. Adding the Bamboo Hand Towels ($16) gets you to $78 — after 20% off you'd pay $62.40, almost the same as now, with an extra item.", go: 'happy', fb: 'Turns a "no" into a real solution.' },
-        { q: 0, t: 'Correct, not with this cart. Sorry!', go: 'lost', fb: 'A dead end. Look for an honest way to help the customer get what they want.' },
-        { q: 1, t: 'You could add the Bamboo Washcloths ($12) to qualify.', retry: true, r: ['I added them. total is $74 and it STILL says not eligible 🙄'], fb: 'Check the math: $62 + $12 = $74 — still under the $75 minimum.' }
+        { q: 0, t: "Unfortunately not with this cart — the FALL20 code needs at least $75 of Home & Bath items, and your cart is a little under that right now. I'm sorry I can't do more for you on this one!", go: 'lost', fb: 'A dead end. Look for an honest way to help the customer get what they want.' },
+        { q: 1, t: 'You can still get it, Kevin! You only need a little more in Home & Bath items to reach the $75 minimum. Adding the Bamboo Washcloths ($12) would get you there, and then FALL20 takes 20% off the whole Home & Bath order.', retry: true, r: ['I added them. total is $74 and it STILL says not eligible 🙄'], fb: 'Check the math: $62 + $12 = $74 — still under the $75 minimum.' }
       ]
     },
     happy: {
       c: ["oh nice, that's actually a good deal", 'ok added them. FALL20 worked 👍'],
       o: [
         { q: 3, t: "Awesome! Your total should now show $62.40 before tax, and since it's over $50, standard shipping is free too. Anything else I can help with?", go: 'end', fb: 'Confirms the result and adds a useful detail (free shipping over $50).' },
-        { q: 2, t: 'Great! Anything else I can help with?', go: 'end', fb: 'Good close.' },
+        { q: 2, t: 'Great — glad FALL20 worked and you got a good deal out of it! Enjoy the towels. Is there anything else I can help you with?', go: 'end', fb: 'Good close.' },
         { q: 1, t: 'ok good', go: 'end_cold', fb: 'Too flat — finish strong.' }
       ]
     },
@@ -226,8 +226,8 @@ SR.scenario({
       o: [
         { q: 3, t: "Hi Grace, I'm {agent} and I'll be taking over from Jordan. Thank you for the photo — I'm really sorry your plates arrived broken. I can see the damage clearly, so let's get this sorted right away.", go: 'options', fb: "Smooth handover: introduce yourself, show you've read the history, and don't make her repeat herself." },
         { q: 0, t: 'Hi! Welcome to Lumen & Co. How can I help you today?', retry: true, r: ['…I already explained everything to the other agent and sent a photo 😔'], fb: 'Read the history after a transfer — never make the customer repeat themselves.' },
-        { q: 2, t: "Hi Grace, I'm taking over this chat. Sorry about the plates!", go: 'options', fb: "Good. Mentioning the photo shows you've actually reviewed the history." },
-        { q: 1, t: "Hi Grace, could you send the photo again? I can't see what the previous agent saw.", retry: true, r: ['It\'s right there in the chat… I sent it a few minutes ago.'], fb: 'The photo is in the history above. Scroll up and read before replying.' }
+        { q: 2, t: "Hi Grace, I'm taking over this chat from my colleague, so you're in good hands now. I'm so sorry about the plates — that's really disappointing, and I can only imagine how you felt opening the box. Let's get this sorted out for you.", go: 'options', fb: "Good. Mentioning the photo shows you've actually reviewed the history." },
+        { q: 1, t: "Hi Grace, I'm {agent} and I'll be taking over from Jordan — I'm so sorry about your plates. Could you please send the photo of the damage again? I can't see what the previous agent saw on my side, and I want to log it correctly.", retry: true, r: ['It\'s right there in the chat… I sent it a few minutes ago.'], fb: 'The photo is in the history above. Scroll up and read before replying.' }
       ]
     },
     options: {
@@ -245,15 +245,15 @@ SR.scenario({
         { q: 3, t: "Yes! Replacement orders created before 2 PM ship the same day with free Express shipping, so it should arrive by Thursday, Nov 5 or Friday, Nov 6 — before Saturday. I've created replacement order LM-483902, and you'll get the tracking by email shortly.", go: 'close', fb: 'Accurate timeline from the policy, plus clear confirmation of what you did.' },
         { q: 0, t: 'Yes, it will arrive tomorrow — guaranteed!', retry: true, r: ["Tomorrow? Is that really guaranteed? I don't want to count on it if it isn't…"], fb: 'Never guarantee delivery. Express is 2–3 business days: give the honest window (Nov 5–6).' },
         { q: 2, t: 'It ships today with Express, so it should arrive in 2–3 business days.', go: 'close', fb: 'Accurate. Converting it into dates (Nov 5–6) helps her plan for Saturday.' },
-        { q: 0, t: 'It ships with standard shipping, so expect it in 5–7 business days.', retry: true, r: ["That would be after Saturday… 😟 Isn't there anything faster?"], fb: 'Replacements ship with free Express (2–3 business days), not Standard.' }
+        { q: 0, t: "Great choice, Grace! I've created your replacement order LM-483902 and it will ship from our warehouse today. It goes out with standard shipping, so please expect it in about 5–7 business days — you'll get the tracking details by email as soon as it's on its way.", retry: true, r: ["That would be after Saturday… 😟 Isn't there anything faster?"], fb: 'Replacements ship with free Express (2–3 business days), not Standard.' }
       ]
     },
     close: {
       c: ["Oh, that's wonderful. Thank you so much!", 'Do I need to pack the broken plates carefully?'],
       o: [
         { q: 3, t: 'Just wrap them in some paper so nobody gets hurt and use any box — the prepaid label covers it. You can drop it at any UPS location within 30 days. Is there anything else I can help with, Grace?', go: 'end', fb: 'Practical, safe guidance plus the 30-day window, and a proper close.' },
-        { q: 1, t: 'No idea, just send them back however.', go: 'end_short', fb: "Unprofessional. If you're unsure, give practical, safe guidance." },
-        { q: 2, t: 'Yes, please wrap them carefully and use the label we emailed. Anything else?', go: 'end', fb: 'Good — mentioning the 30-day window would complete it.' }
+        { q: 1, t: "Honestly, I'm not sure, Grace — there isn't really a set way to do it, so just send them back however works for you, in whatever box you have lying around. As long as the label is on it, it should be fine.", go: 'end_short', fb: "Unprofessional. If you're unsure, give practical, safe guidance." },
+        { q: 2, t: 'Yes, please wrap them carefully, Grace — some paper or bubble wrap is perfect so nobody gets hurt — and pop them in any box with the prepaid label we emailed you. Drop it off at any UPS location. Is there anything else I can help with?', go: 'end', fb: 'Good — mentioning the 30-day window would complete it.' }
       ]
     },
     end: { c: ["No, that's everything. You've been lovely, thank you!"], end: 'resolved' },
@@ -301,22 +301,22 @@ SR.scenario({
       o: [
         { q: 3, t: "Hello Harold, thank you for contacting us — I'll help you get back in. First, for your security, could you please confirm the email address on the account and your billing ZIP code?", go: 'verified', r: ['Of course. The email is h.jenkins1952@aol.com and my zip code is 85716.'], fb: 'Patient and clear — and you verify identity before touching the account.' },
         { q: 0, t: "Sure! Tell me the password you've been using and I'll check what's wrong with it.", retry: true, r: ['Is that safe? My grandson told me never to share my password…'], fb: 'Never ask for a password. It is a serious security violation.' },
-        { q: 2, t: 'Hi Harold! Could you please confirm your email address?', go: 'more', r: ['It is h.jenkins1952@aol.com'], fb: 'Good start, but guests need TWO details. Asking for both at once saves time.' },
-        { q: 1, t: "Just click 'Forgot password' on the sign-in page and you'll be able to reset it.", retry: true, r: ['I tried that, but it says my account is locked and to contact support.'], fb: "Locked accounts can't use self-service reset — that's exactly why he's contacting you. Check the account panel." }
+        { q: 2, t: "Hello Harold, thank you for contacting us, and don't worry — I'll help you get back into your account. First, for your security, could you please confirm the email address on the account? Take your time, there's no rush.", go: 'more', r: ['It is h.jenkins1952@aol.com'], fb: 'Good start, but guests need TWO details. Asking for both at once saves time.' },
+        { q: 1, t: "Hello Harold, thank you for contacting us, and don't worry — this happens to everyone! The easiest way back in is to click 'Forgot password' on the sign-in page. You'll get an email to choose a new password, and then you can sign in again.", retry: true, r: ['I tried that, but it says my account is locked and to contact support.'], fb: "Locked accounts can't use self-service reset — that's exactly why he's contacting you. Check the account panel." }
       ]
     },
     more: {
       c: [],
       o: [
         { q: 3, t: 'Thank you! And could you also confirm your billing ZIP code or the phone number on the account?', go: 'verified', r: ['Yes, my zip code is 85716.'], fb: 'Second verification detail collected — correct procedure.' },
-        { q: 0, t: "Thanks, that's enough. Let me unlock your account.", retry: true, r: ['Oh, all right… is the email enough for security?'], fb: "One detail isn't enough for a guest. Policy requires two." }
+        { q: 0, t: "Thank you, that's all I need. I'll go ahead and unlock your account now.", retry: true, r: ['Oh, all right… is the email enough for security?'], fb: "One detail isn't enough for a guest. Policy requires two." }
       ]
     },
     verified: {
       c: [],
       o: [
         { q: 3, t: "Thank you, Harold, you're verified. Your account was locked this morning after 5 unsuccessful sign-in attempts — it's an automatic safety feature. I've unlocked it and sent a password-reset link to h.jenkins1952@aol.com. The link is valid for 30 minutes.", go: 'link', fb: 'Explains why in plain words, takes action, and says where the link went and how long it lasts.' },
-        { q: 0, t: "Thank you! I've reset your password to Lumen2026 so you can sign in right away.", retry: true, r: ['Oh, you can choose it for me? Hmm… is that how it usually works?'], fb: 'Agents never set or share passwords. Unlock the account and send a reset link to the email on file.' },
+        { q: 0, t: "Thank you, Harold, you're verified! Your account locked itself after a few unsuccessful sign-in attempts, which is a normal safety feature. To make things easy, I've unlocked it and reset your password to Lumen2026, so you can sign in right away.", retry: true, r: ['Oh, you can choose it for me? Hmm… is that how it usually works?'], fb: 'Agents never set or share passwords. Unlock the account and send a reset link to the email on file.' },
         { q: 2, t: "Thanks. I've unlocked your account and sent a reset link to your email.", go: 'link', fb: 'Correct. Explaining why it locked and how long the link lasts helps a less technical customer.' }
       ]
     },
@@ -325,14 +325,14 @@ SR.scenario({
       o: [
         { q: 3, t: "Perfect! Click the blue 'Reset password' button in that email. A page will open where you type a new password twice. Choose something you'll remember but that's hard to guess — at least 8 characters with a number. Take your time, I'll wait right here.", go: 'done', fb: "Step-by-step guidance at the customer's pace — ideal for someone who isn't confident with technology." },
         { q: 1, t: 'Just follow the instructions in the email.', go: 'done', r: ['…all right, I will try.'], fb: "Too vague for a customer who's unsure. Walk him through it." },
-        { q: 0, t: "Reply to that email with the new password you'd like and we'll set it for you.", retry: true, r: ['Send my password by email? Are you sure that is safe?'], fb: 'Never instruct customers to send passwords by email or chat.' }
+        { q: 0, t: "Great, Harold, you found it! There's an even simpler way if you'd rather not type it on the website: just reply to that email with the new password you'd like to use, and our account team will set it up for you. Then you can sign in with it.", retry: true, r: ['Send my password by email? Are you sure that is safe?'], fb: 'Never instruct customers to send passwords by email or chat.' }
       ]
     },
     done: {
       c: ['It worked! I am in.', 'Thank you for your patience with me.'],
       o: [
         { q: 3, t: "You're very welcome, Harold — you did great! One tip: you can turn on two-step verification in Account Settings for extra security. Is there anything else I can help you with today?", go: 'end', fb: 'Warm, adds a relevant security tip, and offers more help.' },
-        { q: 2, t: 'Glad it worked! Anything else I can help with?', go: 'end', fb: 'Good close.' },
+        { q: 2, t: 'Glad it worked, Harold, and no need to thank me — you did everything just right! Your account is open again. Is there anything else I can help you with today?', go: 'end', fb: 'Good close.' },
         { q: 1, t: 'Ok, bye.', go: 'end_cold', fb: 'He thanked you for your patience — reply with warmth.' }
       ]
     },
