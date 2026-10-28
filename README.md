@@ -59,8 +59,15 @@ Haz doble clic en `index.html`. No necesita instalar nada. Funciona en computado
   `assets/img/products/CREDITS.md`.
 - **Wrap-up:** al terminar cada chat eliges el código de resolución y cierras la conversación.
 - **Días:** 5 niveles (3 → 7 clientes). Con 60 puntos pasas al siguiente día.
-- **Sesión de entrenamiento:** "Set up a training session" permite elegir varios días (o todos los
-  desbloqueados) y la dificultad; los días se juegan seguidos. "Start shift" juega un solo día.
+- **Ajustes del turno (la tuerquita ⚙ junto a "Start shift"):** cuántos clientes entran (de 1 a todos
+  los del día; si eliges menos, se escogen al azar), la dificultad, y qué tan rápido contestan los
+  clientes (Auto según la dificultad, Fast, Normal o Slow). "Use default settings" vuelve a lo
+  predeterminado (Intermedio, todos los clientes, Auto). Se guardan en el navegador.
+  Un turno es de práctica (no desbloquea días ni cambia la mejor puntuación) si es Fácil, si tiene
+  menos clientes que el día o si las respuestas son lentas.
+- **Varios días seguidos:** desde la tuerquita, "Play several days in a row" abre la pantalla para
+  elegir varios días (o todos los desbloqueados) y la dificultad; usa los mismos ajustes de clientes
+  y respuestas. "Start shift" juega un solo día.
 - **Dificultad:** Fácil (menos presión, coach siempre visible, es práctica: no desbloquea días),
   Intermedio (la simulación de siempre) y Difícil (más presión, más chats a la vez, sin coach hasta el
   informe). Los casos y la puntuación son los mismos en los tres. Detalle en `docs/sesiones-y-dificultad.md`.
@@ -79,9 +86,10 @@ Atajos: `Alt`+`↓/↑` cambia de chat · `K` base de conocimiento · `P` pausa 
 | `assets/js/boot.js` | Pantalla de entrada (voz + palabras sincronizadas → logo) |
 | `assets/js/data/products.js` | Foto de cada producto (por nombre) |
 | `assets/img/products/` | Las 28 fotos de productos y `CREDITS.md` |
-| `assets/js/sounds.js` | Las dos voces (entrada y botón Press!) y los efectos de sonido |
+| `assets/js/sounds.js` | Las dos voces (entrada y botón Press!) y los efectos de sonido. Se carga después de mostrar la página para no retrasarla |
 | `assets/audio/` | Copias de los sonidos ya recortados |
-| `assets/img/` | Logo (versiones para la interfaz, la animación y el ícono de pestaña) |
+| `assets/js/logo.js` | El logo (reloj con flecha + "ShiftReady"), dibujado como SVG dentro de la página |
+| `assets/img/` | Ícono de pestaña (`favicon.svg` y `favicon-64.png`) y fotos de productos |
 | `assets/js/engine.js` | Reloj, "typing…", paciencia y puntuación (también se puede usar desde Node.js) |
 | `assets/js/session.js` | Sesiones: dificultades, validación de la configuración e informe de sesión |
 | `assets/js/ui.js` | Toda la interfaz |

@@ -15,21 +15,23 @@
       } catch (e) { /* storage unavailable */ }
     })();
   </script>
-  <link rel="icon" type="image/png" href="assets/img/favicon-64.png">
-  <link rel="preload" as="image" href="assets/img/logo-768.png">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg?v=20261027-1">
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png?v=20261027-1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&display=swap" rel="stylesheet">
+  <!-- The font never blocks the first paint: the page shows with the system font and switches when Inter arrives -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&display=swap"></noscript>
   <!-- Bump ?v= after each update so browsers load the new files instead of an old saved copy -->
-  <link rel="stylesheet" href="assets/css/app.css?v=20261027-2">
+  <link rel="stylesheet" href="assets/css/app.css?v=20261027-5">
 </head>
 <body>
   <div id="app"></div>
   <noscript>ShiftReady needs JavaScript to run.</noscript>
 
-  <script src="assets/js/sounds.js?v=20261023-2"></script>
-  <script src="assets/js/boot.js?v=20261023-2"></script>
-  <script src="assets/js/icons.js?v=20261023-2"></script>
+  <script src="assets/js/logo.js?v=20261027-1"></script>
+  <script src="assets/js/boot.js?v=20261027-1"></script>
+  <script src="assets/js/icons.js?v=20261027-1"></script>
   <script src="assets/js/data/company.js?v=20261023-2"></script>
   <script src="assets/js/data/day1.js?v=20261027-1"></script>
   <script src="assets/js/data/day2.js?v=20261027-1"></script>
@@ -37,8 +39,21 @@
   <script src="assets/js/data/day4.js?v=20261027-1"></script>
   <script src="assets/js/data/day5.js?v=20261027-1"></script>
   <script src="assets/js/data/products.js?v=20261023-2"></script>
-  <script src="assets/js/engine.js?v=20261027-1"></script>
-  <script src="assets/js/session.js?v=20261027-1"></script>
-  <script src="assets/js/ui.js?v=20261027-3"></script>
+  <script src="assets/js/engine.js?v=20261027-2"></script>
+  <script src="assets/js/session.js?v=20261027-3"></script>
+  <script src="assets/js/ui.js?v=20261027-6"></script>
+  <script>
+    /* The sounds (~400 KB) load after the page is on screen, so they never delay it.
+       Buttons stay silent for that first moment; the welcome voice waits for them. */
+    (function () {
+      function load() {
+        var s = document.createElement('script');
+        s.src = 'assets/js/sounds.js?v=20261027-1';
+        s.async = true;
+        document.body.appendChild(s);
+      }
+      requestAnimationFrame(function () { setTimeout(load, 0); });
+    })();
+  </script>
 </body>
 </html>

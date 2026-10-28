@@ -82,7 +82,13 @@
     E.startDay = function (n, o) {
       o = o || {};
       const day = D.days.find(d => d.n === n);
-      const scs = D.scenarios.filter(s => s.day === n).sort((a, b) => a.arrive - b.arrive);
+      // o.scenarios: play only these cases of the day (a shorter shift); the first of them arrives first.
+      // Ids that are not in the day are ignored; if none is, the whole day is played.
+      const ofDay = D.scenarios.filter(s => s.day === n).sort((a, b) => a.arrive - b.arrive);
+      const only = Array.isArray(o.scenarios) && o.scenarios.length ? new Set(o.scenarios) : null;
+      const picked = only ? ofDay.filter(s => only.has(s.id)) : [];
+      const scs = picked.length ? picked : ofDay;
+      const arriveFrom = picked.length ? scs[0].arrive : 0;
       const seed = typeof o.seed === 'number' && isFinite(o.seed) ? o.seed >>> 0 : null;
       random = seed == null ? baseRandom : seededRandom(seed);
       const st = E.st = { day, n, clock: 0, queue: [], seq: 0, mid: 0, paused: false, running: true, ended: false, convs: [], pace: paceOf(o.pace), seed };
@@ -102,7 +108,7 @@
       }));
       E.activeId = null;
       // small lead-in so the agent sees an empty inbox for a moment
-      st.convs.forEach(c => schedule(1200 + c.sc.arrive * 1000 * st.pace.arrive, () => arrive(c)));
+      st.convs.forEach(c => schedule(1200 + (c.sc.arrive - arriveFrom) * 1000 * st.pace.arrive, () => arrive(c)));
       E.lastTs = readClock();
       emit('start', st);
     };

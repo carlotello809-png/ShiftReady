@@ -64,12 +64,37 @@
     return DIFFICULTIES.find(d => d.id === id) || DIFFICULTIES.find(d => d.id === DEFAULT_DIFFICULTY);
   }
 
+  /* How long customers take to answer you. 'auto' keeps what the difficulty sets;
+     the others replace it (engine pace.reply). Slower than normal makes it practice. */
+  const REPLY_SPEEDS = [
+    { id: 'auto', label: 'Auto', mult: null, blurb: 'Set by the difficulty' },
+    { id: 'fast', label: 'Fast', mult: 0.6, blurb: 'Customers answer about 40% sooner' },
+    { id: 'normal', label: 'Normal', mult: 1, blurb: 'Each customer’s usual pace' },
+    { id: 'slow', label: 'Slow', mult: 1.5, blurb: 'Customers take about 50% longer' }
+  ];
+  const DEFAULT_SETTINGS = { difficulty: DEFAULT_DIFFICULTY, customers: null, reply: 'auto' };
+  function replySpeed(id) { return REPLY_SPEEDS.find(r => r.id === id) || REPLY_SPEEDS[0]; }
+
   const uniqSorted = list => Array.from(new Set(list)).sort((a, b) => a - b);
   const scenariosOf = (data, n) => data.scenarios.filter(s => s.day === n).sort((a, b) => a.arrive - b.arrive);
+  // How many customers a day will have with this setting (null = all of them)
+  const customersFor = (data, n, customers) => Math.min(scenariosOf(data, n).length, customers || Infinity);
+
+  // Same seed → same pick (mulberry32), used to choose which customers come in a shorter shift
+  function seeded(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
   /**
    * Checks a session setup before it starts.
-   * @param {{days: number[], difficulty: string}} cfg
+   * @param {{days: number[], difficulty: string, customers?: number|null, reply?: string}} cfg
    * @param {{data: object, isUnlocked?: function(number): boolean}} ctx
    * @returns {{ok: boolean, errors: string[], days: number[], scenarios: number}}
    */
@@ -88,8 +113,28 @@
     });
     if (raw.length !== days.length || raw.some(n => !Number.isInteger(n))) errors.push('The list of days is not valid.');
     if (!cfg || !DIFFICULTIES.some(d => d.id === cfg.difficulty)) errors.push('Choose a difficulty.');
-    const scenarios = days.reduce((s, n) => s + scenariosOf(data, n).length, 0);
+    const customers = cfg && cfg.customers != null ? cfg.customers : null;
+    if (customers !== null && !(Number.isInteger(customers) && customers >= 1)) errors.push('The number of customers must be 1 or more.');
+    if (cfg && cfg.reply != null && !REPLY_SPEEDS.some(r => r.id === cfg.reply)) errors.push('Choose a reply speed.');
+    const scenarios = days.reduce((s, n) => s + customersFor(data, n, Number.isInteger(customers) ? customers : null), 0);
     return { ok: errors.length === 0, errors, days, scenarios };
+  }
+
+  // Why a session is practice (it does not unlock days or change best scores), or [] if it counts.
+  // fewer: at least one day is played with fewer customers than it has.
+  function practiceReasons(diffId, fewer, replyId) {
+    const r = [];
+    if (difficulty(diffId).practice) r.push('Easy difficulty');
+    if (fewer) r.push('Fewer customers');
+    const rs = replySpeed(replyId);
+    if (rs.mult != null && rs.mult > 1) r.push('Slow replies');
+    return r;
+  }
+  /** The same reasons for a setup that has not started yet (cfg as in validateConfig). */
+  function configPractice(cfg, data) {
+    const days = (cfg && cfg.days) || [];
+    const fewer = Number.isInteger(cfg.customers) && days.some(n => scenariosOf(data, n).length > cfg.customers);
+    return practiceReasons(cfg.difficulty, fewer, cfg.reply);
   }
 
   /** A new session, or throws if the setup is not valid. */
@@ -98,17 +143,38 @@
     if (!v.ok) throw new Error('[ShiftReady] invalid session: ' + v.errors.join(' '));
     opts = opts || {};
     const seed = typeof opts.seed === 'number' ? opts.seed >>> 0 : Math.floor(Math.random() * 4294967296);
+    const customers = Number.isInteger(cfg.customers) ? cfg.customers : null;
+    const reply = replySpeed(cfg.reply).id;
+    // Shorter shift: which customers of each day come in (chosen at random, fixed for the session)
+    const picks = {};
+    if (customers) {
+      const rnd = seeded(seed ^ 0x51ED5EED);
+      v.days.forEach(n => {
+        const all = scenariosOf(ctx.data, n).map(s => s.id);
+        if (customers >= all.length) return;
+        for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = all[i]; all[i] = all[j]; all[j] = t; }
+        picks[n] = all.slice(0, customers);
+      });
+    }
+    const reasons = practiceReasons(cfg.difficulty, Object.keys(picks).length > 0, reply);
     return {
       id: opts.id || 's' + seed.toString(36),
       createdAt: opts.now || new Date().toISOString(),
       difficulty: difficulty(cfg.difficulty).id,
       days: v.days,
       scenarios: v.scenarios,
+      customers, reply, picks,
+      practice: reasons.length > 0, practiceReasons: reasons,
       seed,
       attempts: {},
       results: {},
       endedEarly: false
     };
+  }
+
+  /** Practice sessions don't unlock days or change best scores (older saved sessions: Easy only). */
+  function isPractice(session) {
+    return session.practice != null ? !!session.practice : difficulty(session.difficulty).practice;
   }
 
   // Seed of one day of the session: repeatable, different for each day and each retry
@@ -117,8 +183,15 @@
     return (session.seed ^ Math.imul(n, 0x9E3779B1) ^ Math.imul(attempt + 1, 0x85EBCA6B)) >>> 0;
   }
 
+  // Options for engine.startDay: pace from the difficulty (reply speed can replace it),
+  // the day's seed and, in a shorter shift, which customers come in
   function startOptions(session, n) {
-    return { pace: Object.assign({}, difficulty(session.difficulty).pace), seed: daySeed(session, n) };
+    const pace = Object.assign({}, difficulty(session.difficulty).pace);
+    const rs = replySpeed(session.reply);
+    if (rs.mult != null) pace.reply = rs.mult;
+    const out = { pace, seed: daySeed(session, n) };
+    if (session.picks && session.picks[n]) out.scenarios = session.picks[n].slice();
+    return out;
   }
 
   /** The next day still to play, or null when every day has a result. */
@@ -164,15 +237,17 @@
     const done = session.days.filter(n => session.results[n]).map(n => session.results[n]);
     const convs = [].concat.apply([], done.map(r => r.convs.map(c => Object.assign({ day: r.n }, c))));
     const decisions = [].concat.apply([], convs.map(c => c.decisions.map(d => Object.assign({ day: c.day, customer: c.first + ' ' + c.last, topic: c.topic, conv: c.id }, d))));
-    const plannedScenarios = session.days.reduce((s, n) => s + scenariosOf(data, n).length, 0);
+    const plannedScenarios = session.days.reduce((s, n) =>
+      s + (session.picks && session.picks[n] ? session.picks[n].length : scenariosOf(data, n).length), 0);
     const totalScore = done.reduce((s, r) => s + r.score, 0);
     const maxScore = done.length * 100;
+    const practice = isPractice(session);
 
     // passed / failed: every included day reaches the day pass mark (no new threshold).
-    // incomplete (days left unplayed) and practice (Easy) have no pass/fail.
+    // incomplete (days left unplayed) and practice (Easy, fewer customers, slower replies) have no pass/fail.
     let status;
     if (done.length < session.days.length) status = 'incomplete';
-    else if (diff.practice) status = 'practice';
+    else if (practice) status = 'practice';
     else status = done.every(r => r.score >= PASS_SCORE) ? 'passed' : 'failed';
 
     const byQ = { 3: 0, 2: 0, 1: 0, 0: 0 };
@@ -239,6 +314,11 @@
     return {
       id: session.id, createdAt: session.createdAt, seed: session.seed,
       difficulty: { id: diff.id, label: diff.label, practice: diff.practice },
+      settings: {
+        customers: session.customers || null,
+        reply: replySpeed(session.reply).id, replyLabel: replySpeed(session.reply).label,
+        practice, practiceReasons: session.practiceReasons ? session.practiceReasons.slice() : (practice ? ['Easy difficulty'] : [])
+      },
       days: session.days.map(n => { const d = data.days.find(x => x.n === n); return { n, title: d.title, level: d.level, played: !!session.results[n] }; }),
       plannedDays: session.days.length, completedDays: done.length,
       plannedScenarios, completedScenarios: convs.length,
@@ -250,7 +330,11 @@
     };
   }
 
-  const api = { PASS_SCORE, DIFFICULTIES, DEFAULT_DIFFICULTY, INSIGHT, difficulty, validateConfig, createSession, daySeed, startOptions, nextDay, dayResult, recordDay, buildReport };
+  const api = {
+    PASS_SCORE, DIFFICULTIES, DEFAULT_DIFFICULTY, INSIGHT, REPLY_SPEEDS, DEFAULT_SETTINGS,
+    difficulty, replySpeed, practiceReasons, configPractice, isPractice, validateConfig, createSession,
+    daySeed, startOptions, nextDay, dayResult, recordDay, buildReport
+  };
   if (root && root.SR) root.SR.session = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : null);

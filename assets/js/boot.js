@@ -66,7 +66,7 @@ window.SR = window.SR || {};
         l.words.map(w => '<span class="bw">' + esc(w[0]) + '</span>').join(' ') +
         '</' + l.tag + '>').join('') +
       '<button type="button" class="boot-logo" aria-label="Start">' +
-        '<img src="assets/img/logo-768.png" alt="" draggable="false">' +
+        SR.logo.tile(176) +
         '<span class="boot-hint">' + (touch ? 'Tap to start' : 'Click to start') + '</span>' +
       '</button>';
     document.body.appendChild(root);
@@ -84,9 +84,17 @@ window.SR = window.SR || {};
     const after = reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(-10px) scale(1.01)', filter: 'blur(6px)' };
 
     let phase = 'logo';      // logo → words → done
-    // Load the voice while the logo waits, so it starts the moment the logo is pressed
-    const voice = makeVoice();
-    if (voice) { try { voice.load(); } catch (e) { /* ignore */ } }
+    // Load the voice while the logo waits, so it starts the moment the logo is pressed.
+    // The sound file arrives a moment after the page (index.html loads it late), so
+    // the voice is prepared as soon as it is there.
+    let voice = null;
+    function prepareVoice() {
+      if (voice || phase !== 'logo') return;
+      voice = makeVoice();
+      if (voice) { try { voice.load(); } catch (e) { /* ignore */ } }
+    }
+    prepareVoice();
+    document.addEventListener('sr:sounds', prepareVoice);
     let timer = 0;
 
     // 1. The logo comes in and waits to be pressed
@@ -174,6 +182,7 @@ window.SR = window.SR || {};
       listeners.splice(0).forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
     }
     function cleanup() {
+      document.removeEventListener('sr:sounds', prepareVoice);
       anims.forEach(a => { try { a.cancel(); } catch (e) { /* ignore */ } });
       if (voice) { try { voice.pause(); voice.removeAttribute('src'); voice.load(); } catch (e) { /* ignore */ } }
       root.remove();
