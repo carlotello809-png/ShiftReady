@@ -1,0 +1,62 @@
+/* ShiftReady — "Crear entrenamiento" chat at the left of the lobby (uses the simulator's own tokens) */
+.lobby.has-tc { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); align-items: start; }
+.lobby.has-tc .lb-main { width: 100%; }
+.tc { position: sticky; top: 0; height: 100vh; height: 100svh; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--line); z-index: 5; }
+.tc.drag { outline: 2px dashed var(--primary); outline-offset: -6px; }
+.tc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+.tc-head h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--ink); }
+.tc-badge { display: inline-block; margin-top: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: var(--warning-ink, #7a4f0c); background: var(--warning-50, #fdf4e1); border: 1px dashed var(--warning, #b07214); }
+.tc-head-a { display: flex; gap: 4px; }
+.tc-icon { width: 30px; height: 30px; display: grid; place-items: center; color: var(--ink-2); background: none; border: 1px solid var(--line); cursor: pointer; }
+.tc-icon:hover { background: var(--hover); color: var(--ink); }
+.tc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tc-msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.tc-msg { position: relative; display: flex; flex-direction: column; max-width: 100%; }
+.tc-msg.me { align-items: flex-end; }
+.tc-bub { padding: 9px 12px; font-size: 13px; line-height: 1.45; color: var(--ink); background: var(--subtle); border: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; max-width: 92%; }
+.tc-msg.me .tc-bub { background: var(--primary); color: #fff; border-color: var(--primary); }
+.tc-att { margin-top: 6px; font-size: 11px; opacity: .85; }
+.tc-typing { color: var(--ink-3); font-style: italic; }
+.tc-del { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; display: none; place-items: center; background: var(--panel); border: 1px solid var(--line); color: var(--ink-2); cursor: pointer; }
+.tc-msg.me:hover .tc-del, .tc-del:focus-visible { display: grid; }
+.tc-plan { margin-top: 8px; display: grid; gap: 8px; }
+.tc-day { padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--brand); }
+.tc-day-h { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+.tc-lvl { margin-left: auto; font-size: 11px; color: var(--ink-2); }
+.tc-tag { font-size: 10px; font-weight: 700; padding: 1px 6px; color: #fff; background: var(--brand); }
+.tc-day-t { margin-top: 2px; font-size: 12px; color: var(--ink-2); }
+.tc-day ul { margin: 6px 0 8px; padding-left: 16px; font-size: 12px; color: var(--ink); }
+.tc-day li span { color: var(--ink-3); }
+.tc-mini { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; font-size: 12px; font-weight: 600; color: var(--primary); background: var(--primary-50); border: 1px solid var(--primary-100); cursor: pointer; }
+.tc-mini:hover { background: var(--primary-100); }
+.tc-note { font-size: 11px; color: var(--ink-3); }
+.tc-files { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px; }
+.tc-files:empty { display: none; }
+.tc-file { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 4px 4px 8px; font-size: 11px; background: var(--subtle); border: 1px solid var(--line); color: var(--ink); }
+.tc-file .n { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.tc-file .m { color: var(--ink-3); white-space: nowrap; }
+.tc-file button { width: 18px; height: 18px; display: grid; place-items: center; background: none; border: 0; color: var(--ink-2); cursor: pointer; }
+.tc-compose { padding: 10px 16px 14px; border-top: 1px solid var(--line); margin-top: 8px; }
+.tc-compose textarea { width: 100%; resize: vertical; min-height: 64px; padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-2); }
+.tc-compose textarea:focus { outline: 2px solid var(--primary); outline-offset: 0; }
+.tc-actions { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.tc-sp { flex: 1; }
+.tc-attach { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; font-size: 12px; font-weight: 600; color: var(--ink-2); border: 1px solid var(--line); cursor: pointer; }
+.tc-attach:hover { background: var(--hover); color: var(--ink); }
+.tc-attach:focus-within { outline: 2px solid var(--primary); }
+.tc-send { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; font-size: 13px; font-weight: 600; color: #fff; background: var(--primary); border: 0; cursor: pointer; }
+.tc-send:disabled { opacity: .6; cursor: default; }
+.tc-hint { margin-top: 6px; font-size: 11px; color: var(--ink-3); }
+.tc .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+/* Collapsed: a slim strip with the toggle */
+.lobby.has-tc:has(.tc.closed) { grid-template-columns: 48px minmax(0, 1fr); }
+.tc.closed .tc-body, .tc.closed .tc-head h2, .tc.closed .tc-badge, .tc.closed [data-tc="new"] { display: none; }
+.tc.closed .tc-head { padding: 12px 8px; justify-content: center; }
+/* Tablets and phones: the chat goes above the schedule */
+@media (max-width: 1000px) {
+  .lobby.has-tc, .lobby.has-tc:has(.tc.closed) { grid-template-columns: minmax(0, 1fr); }
+  .tc { position: relative; height: auto; max-height: 75vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  .tc.closed .tc-head { justify-content: space-between; padding: 12px 16px; }
+  .tc.closed .tc-head h2 { display: flex; }
+  .tc-msgs { max-height: 40vh; }
+}

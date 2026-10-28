@@ -294,7 +294,8 @@
     stopHowto(true);
 
     app.innerHTML =
-      '<div class="lobby">' +
+      '<div class="lobby' + (SR.trainChat ? ' has-tc' : '') + '">' +
+        (SR.trainChat ? '<aside class="tc" id="trainChat" aria-label="Crear entrenamiento"></aside>' : '') +
         '<main class="lb-main">' +
           '<section class="lb-hero">' +
             themeButton('lb-theme') +
@@ -333,6 +334,7 @@
       '</div>';
     // While the welcome screen is up, the lobby sits blurred underneath it; otherwise it rises in
     const root = $('.lobby');
+    if (SR.trainChat) SR.trainChat.mount(document.getElementById('trainChat'));   // "Crear entrenamiento" chat (assets/js/train-chat.js)
     if (!(SR.boot && !SR.boot.done)) root.classList.add('lb-enter');
     endTour();
     updateRotate();
