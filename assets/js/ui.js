@@ -15,9 +15,12 @@
   function loadStore() {
     try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
   }
-  const store = Object.assign({ agentName: 'Alex Morgan', coach: true, sound: true, intro: true, theme: 'light', unlockAll: false, difficulty: SS.DEFAULT_DIFFICULTY, progress: {} }, loadStore());
+  const store = Object.assign({ agentName: 'Alex Morgan', coach: true, sound: true, intro: true, theme: 'light', unlockAll: false, difficulty: SS.DEFAULT_DIFFICULTY, customers: null, reply: 'auto', progress: {} }, loadStore());
   if (!store.progress || typeof store.progress !== 'object') store.progress = {};
   if (!SS.DIFFICULTIES.some(d => d.id === store.difficulty)) store.difficulty = SS.DEFAULT_DIFFICULTY;
+  // Shift settings (the gear): customers per shift (null = all of the day) and how fast customers reply
+  if (!(Number.isInteger(store.customers) && store.customers >= 1)) store.customers = null;
+  if (!SS.REPLY_SPEEDS.some(r => r.id === store.reply)) store.reply = 'auto';
   function saveStore() {
     try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* storage unavailable */ }
   }
@@ -132,8 +135,7 @@
   }
   function agentAvatar(size) { return avatarHTML({ name: store.agentName, kind: 'agent' }, size); }
   function brandMark(size) {
-    const s = size || 38;
-    return '<img class="brand-logo" src="assets/img/logo-192.png" width="' + s + '" height="' + s + '" alt="ShiftReady" draggable="false">';
+    return SR.logo.tile(size || 38, { word: false, label: 'ShiftReady', cls: 'brand-logo' });
   }
 
   function starsHTML(n, size) {
@@ -219,7 +221,7 @@
           '<section class="lb-hero">' +
             themeButton('lb-theme') +
             '<div class="lb-brand">' +
-              '<img class="lb-logo" src="assets/img/logo-768.png" alt="ShiftReady" draggable="false">' +
+              SR.logo.tile(108, { label: 'ShiftReady', cls: 'lb-logo' }) +
               '<span class="howto-wrap"><button class="howto-btn" data-act="howto" aria-pressed="false" aria-label="How to start"><span class="howto-t">Press!</span></button></span>' +
             '</div>' +
             '<div class="lb-stage">' +
@@ -227,10 +229,8 @@
               '<div class="lb-intro">' +
                 '<span class="eyebrow">Customer care training · Lumen &amp; Co.</span>' +
                 '<h1>Practice live support chats under real pressure</h1>' +
-                '<p>' + D.days.length + ' training days · ' + D.scenarios.length + ' customers · real company policies. Choose the days and the difficulty, then get a full session report.</p>' +
-                '<div class="lb-cta"><button class="btn btn-primary btn-lg" data-act="setup">' + icon('sliders', 16) + 'Set up a training session</button>' +
-                  (reported().length ? '<a class="btn btn-lg" href="#sessions">' + icon('file', 15) + 'Session reports <span class="count">' + reported().length + '</span></a>' : '') +
-                '</div>' +
+                '<p>' + D.days.length + ' training days · ' + D.scenarios.length + ' customers · real company policies. Pick a day and start — the ' + icon('gear', 14, 'inline-ic') + ' gear sets the customers, difficulty and reply speed.</p>' +
+                (reported().length ? '<div class="lb-cta"><a class="btn btn-lg" href="#sessions">' + icon('file', 15) + 'Session reports <span class="count">' + reported().length + '</span></a></div>' : '') +
               '</div>' +
             '</div>' +
           '</section>' +
@@ -331,23 +331,100 @@
     '</div>';
   }
 
-  // Difficulty picker + start for a one-day session from the lobby
+  /* ---------- shift settings (the gear) ---------- */
+  const dayCount = n => D.scenarios.filter(s => s.day === n).length;
+  // What the next shift uses: picked in the gear panel, kept in this browser
+  function shiftSettings() { return { difficulty: store.difficulty, customers: store.customers, reply: store.reply }; }
+  // (the multi-day setup picks its own difficulty, so there only customers and replies matter)
+  const isDefaultSettings = () => store.customers == null && store.reply === SS.DEFAULT_SETTINGS.reply &&
+    (ui.view === 'setup' || store.difficulty === SS.DEFAULT_SETTINGS.difficulty);
+  // Customers a day will have with the current setting
+  const shiftCustomers = n => Math.min(dayCount(n), store.customers || Infinity);
+
+  // Start + gear for a one-day session from the lobby, with what the shift will be like
   function quickStartHTML(n) {
-    const d = SS.difficulty(store.difficulty);
     return '<div class="quick">' +
-      '<div class="quick-h"><b>Difficulty</b><span id="quickBlurb">' + esc(d.blurb) + '</span></div>' +
-      segHTML('quick-diff', store.difficulty) +
-      '<button class="btn btn-primary btn-lg btn-block" data-act="start" data-day="' + n + '">Start shift ' + icon('arrowRight', 17) + '</button>' +
-      '<p class="quick-note" id="quickNote">' + quickNote(n, d) + '</p>' +
+      '<div class="quick-row">' +
+        '<button class="btn btn-primary btn-lg quick-go" data-act="start" data-day="' + n + '">Start shift ' + icon('arrowRight', 17) + '</button>' +
+        '<button class="gear-btn" data-act="shift-settings" title="Shift settings" aria-label="Shift settings: customers, difficulty and reply speed" aria-haspopup="dialog">' + icon('gear', 21) + '</button>' +
+      '</div>' +
+      '<div class="quick-sum" id="quickSum">' + quickSumHTML(n) + '</div>' +
     '</div>';
   }
-  function quickNote(n, d) {
-    return esc('Plays Day ' + n + ' on its own' + (d.practice ? ' as practice — it won’t unlock days or change best scores' : '') + '. ') +
-      '<button class="link-quiet" data-act="setup">Combine several days</button>';
+  function quickSumHTML(n) {
+    const d = SS.difficulty(store.difficulty), r = SS.replySpeed(store.reply);
+    const k = shiftCustomers(n), all = dayCount(n);
+    const why = SS.configPractice(Object.assign({ days: [n] }, shiftSettings()), D);
+    return '<button class="qs-chips" data-act="shift-settings" aria-label="Change shift settings">' +
+        '<span class="qs-chip diff-' + d.id + '">' + esc(d.label) + '</span>' +
+        '<span class="qs-chip">' + (k < all ? k + ' of ' + all : 'All ' + all) + ' customers</span>' +
+        '<span class="qs-chip">' + esc(r.label) + ' replies</span>' +
+        (isDefaultSettings() ? '<span class="qs-def">Default</span>' : '') +
+      '</button>' +
+      '<p class="quick-note">' + (why.length
+        ? icon('info', 13) + esc('Practice shift (' + why.join(' · ') + '): it won’t unlock days or change best scores.')
+        : esc('Plays Day ' + n + ' on its own. Pass it to unlock the next day.')) + '</p>';
   }
-  function segHTML(act, value) {
-    return '<div class="seg" role="radiogroup" aria-label="Difficulty">' + SS.DIFFICULTIES.map(x =>
-      '<button class="seg-b' + (x.id === value ? ' on' : '') + '" role="radio" aria-checked="' + (x.id === value) + '" data-act="' + act + '" data-diff="' + x.id + '">' + esc(x.label) + '</button>').join('') + '</div>';
+  function segHTML(act, items, value, label) {
+    return '<div class="seg" role="radiogroup" aria-label="' + esc(label) + '">' + items.map(x =>
+      '<button class="seg-b' + (x.id === value ? ' on' : '') + '" role="radio" aria-checked="' + (x.id === value) + '" data-act="' + act + '" data-v="' + x.id + '">' + esc(x.label) + '</button>').join('') + '</div>';
+  }
+  // The gear panel. In the multi-day setup the page picks the difficulty itself, so it is left out here.
+  function shiftSettingsHTML() {
+    const inSetup = ui.view === 'setup';
+    const n = ui.day;
+    const all = inSetup ? Math.max.apply(null, D.days.map(d => dayCount(d.n))) : dayCount(n);
+    const cust = store.customers && store.customers < all ? String(store.customers) : 'all';
+    const custItems = [];
+    for (let i = 1; i < all; i++) custItems.push({ id: String(i), label: String(i) });
+    custItems.push({ id: 'all', label: 'All ' + all });
+    return '<div class="modal ss-modal">' +
+      '<div class="ss-top"><div class="md-ic">' + icon('gear', 22) + '</div>' +
+        '<div><h3 id="ssTitle">Shift settings</h3><p>' + (inSetup ? 'For every day of the session.' : 'Day ' + n + ' · ' + esc(D.days.find(d => d.n === n).title)) + '</p></div>' +
+        '<button class="icon-btn ss-x" data-act="resume" aria-label="Close">' + icon('x', 18) + '</button></div>' +
+      '<div class="ss-sec"><div class="ss-h"><b>Customers</b><span id="ssCustB"></span></div>' +
+        segHTML('ss-cust', custItems, cust, 'Customers') + '</div>' +
+      (inSetup ? '' : '<div class="ss-sec"><div class="ss-h"><b>Difficulty</b><span id="ssDiffB"></span></div>' +
+        segHTML('ss-diff', SS.DIFFICULTIES, store.difficulty, 'Difficulty') + '</div>') +
+      '<div class="ss-sec"><div class="ss-h"><b>How fast customers reply</b><span id="ssReplyB"></span></div>' +
+        segHTML('ss-reply', SS.REPLY_SPEEDS, store.reply, 'How fast customers reply') + '</div>' +
+      '<p class="ss-note" id="ssNote"></p>' +
+      '<div class="md-actions ss-actions">' +
+        '<button class="btn" data-act="ss-defaults" id="ssDefaults">' + icon('rotate', 14) + 'Use default settings</button>' +
+        '<button class="btn btn-primary" data-act="resume">Done</button></div>' +
+      (inSetup ? '' : '<button class="link-quiet ss-multi" data-act="setup">' + icon('calendar', 13) + 'Play several days in a row</button>') +
+    '</div>';
+  }
+  // Brings the gear panel, the lobby summary and the setup summary up to date after a change
+  function refreshShiftSettings() {
+    const inSetup = ui.view === 'setup';
+    const all = inSetup ? Math.max.apply(null, D.days.map(d => dayCount(d.n))) : dayCount(ui.day);
+    const cust = store.customers && store.customers < all ? String(store.customers) : 'all';
+    const mark = (act, v) => $$('[data-act="' + act + '"]', overlay).forEach(b => {
+      const on = b.dataset.v === v; b.classList.toggle('on', on); b.setAttribute('aria-checked', on);
+    });
+    mark('ss-cust', cust); mark('ss-diff', store.difficulty); mark('ss-reply', store.reply);
+    const set = (id, txt) => { const el = $('#' + id); if (el) el.textContent = txt; };
+    const k = cust === 'all' ? all : Number(cust);
+    set('ssCustB', cust === 'all' ? (inSetup ? 'Every customer of each day' : 'All ' + all + ' customers of the day')
+      : (inSetup ? 'Up to ' + k + ' per day, picked at random' : k + ' of ' + all + ', picked at random'));
+    set('ssDiffB', SS.difficulty(store.difficulty).blurb);
+    const r = SS.replySpeed(store.reply);
+    set('ssReplyB', r.id === 'auto' ? 'Set by the difficulty (' + SS.difficulty(inSetup && ui.setup ? ui.setup.difficulty : store.difficulty).label + ')' : r.blurb);
+    const days = inSetup && ui.setup ? ui.setup.days : [ui.day];
+    const why = SS.configPractice(Object.assign({ days: days.length ? days : D.days.map(d => d.n) }, shiftSettings(), inSetup && ui.setup ? { difficulty: ui.setup.difficulty } : null), D);
+    const note = $('#ssNote');
+    if (note) {
+      note.className = 'ss-note' + (why.length ? ' is-practice' : '');
+      note.innerHTML = icon(why.length ? 'info' : 'checkCircle', 14) + '<span>' + esc(why.length
+        ? (inSetup ? 'Practice session (' : 'Practice shift (') + why.join(' · ') + '): it won’t unlock days or change best scores.'
+        : 'These settings count: passing unlocks the next day and best scores are kept.') + '</span>';
+    }
+    const def = $('#ssDefaults');
+    if (def) def.disabled = isDefaultSettings();
+    const qs = $('#quickSum');
+    if (qs) qs.innerHTML = quickSumHTML(ui.day);
+    if (inSetup) refreshSetup();
   }
 
   /* ---------- session reports of this visit ---------- */
@@ -474,23 +551,30 @@
     '</label>';
   }
 
+  // The multi-day setup uses its own days and difficulty plus the gear's customers and reply speed
+  function setupConfig() { return { days: ui.setup.days, difficulty: ui.setup.difficulty, customers: store.customers, reply: store.reply }; }
   function setupSummaryHTML() {
-    const v = SS.validateConfig(ui.setup, { data: D, isUnlocked });
+    const cfg = setupConfig();
+    const v = SS.validateConfig(cfg, { data: D, isUnlocked });
     const diff = SS.difficulty(ui.setup.difficulty);
+    const why = SS.configPractice(cfg, D);
     const rows = v.days.map(n => {
       const d = D.days.find(x => x.n === n);
-      const c = D.scenarios.filter(s => s.day === n).length;
-      return '<li><span class="sum-n">' + n + '</span><span><b>' + esc(d.title) + '</b><span>' + c + ' customers · ' + esc(d.level) + '</span></span></li>';
+      const c = dayCount(n), k = shiftCustomers(n);
+      return '<li><span class="sum-n">' + n + '</span><span><b>' + esc(d.title) + '</b><span>' + (k < c ? k + ' of ' + c : c) + ' customers · ' + esc(d.level) + '</span></span></li>';
     }).join('');
+    const r = SS.replySpeed(store.reply);
     return '<h3>Session summary</h3>' +
       '<div class="sum-big">' +
         '<div><b>' + v.days.length + '</b><span>' + (v.days.length === 1 ? 'day' : 'days') + '</span></div>' +
         '<div><b>' + v.scenarios + '</b><span>customers</span></div>' +
         '<div><b>' + esc(diff.label) + '</b><span>difficulty</span></div>' +
       '</div>' +
+      '<button class="sum-set" data-act="shift-settings" aria-haspopup="dialog">' + icon('gear', 16) +
+        '<span><b>' + (store.customers ? 'Up to ' + store.customers + ' customers a day' : 'Every customer') + ' · ' + esc(r.label) + ' replies</b><small>Change in shift settings</small></span>' + icon('chevRight', 14) + '</button>' +
       (rows ? '<ol class="sum-days">' + rows + '</ol>' : '<p class="sum-empty">No days selected yet.</p>') +
       (v.ok ? '' : '<div class="alert" role="alert">' + icon('alert', 15) + '<div>' + v.errors.map(e => '<p>' + esc(e) + '</p>').join('') + '</div></div>') +
-      (diff.practice && v.ok ? '<p class="sum-flow">' + icon('info', 13) + 'Practice session: results won’t unlock days or change best scores.</p>' : '') +
+      (why.length && v.ok ? '<p class="sum-flow">' + icon('info', 13) + esc('Practice session (' + why.join(' · ') + '): results won’t unlock days or change best scores.') + '</p>' : '') +
       '<button class="btn btn-primary btn-lg btn-block" data-act="start-session"' + (v.ok ? '' : ' disabled aria-disabled="true"') + '>Start session ' + icon('arrowRight', 17) + '</button>' +
       (v.ok ? '<p class="sum-flow">You’ll start with Day ' + v.days[0] + '.' + (v.days.length > 1 ? ' After each day, continue to the next one.' : '') + '</p>' : '');
   }
@@ -531,25 +615,28 @@
     emptyEl = null;
     closedHeadEl = null;
     // Every shift belongs to a session: its difficulty sets the pace, its seed the option order
-    if (!ui.session || ui.session.days.indexOf(n) === -1) ui.session = newSession([n], store.difficulty);
+    if (!ui.session || ui.session.days.indexOf(n) === -1) ui.session = newSession(Object.assign({ days: [n] }, shiftSettings()));
     E.startDay(n, SS.startOptions(ui.session, n));
     renderWorkspace();
     updateRotate();
     if (n === 1) startTourWhenReady();   // Day 1: a short tour of the workspace
   }
 
-  function newSession(days, difficulty) {
-    const s = SS.createSession({ days, difficulty }, { data: D, isUnlocked });
+  function newSession(cfg) {
+    const s = SS.createSession(cfg, { data: D, isUnlocked });
     rememberSession(s);
     return s;
   }
-  // From the setup screen, or a single day from the lobby
-  function startSession(days, difficulty) {
-    const v = SS.validateConfig({ days, difficulty }, { data: D, isUnlocked });
+  // The settings a session was played with, to start another shift the same way
+  const settingsOf = s => ({ difficulty: s.difficulty, customers: s.customers || null, reply: s.reply || 'auto' });
+  // From the setup screen, or a single day from the lobby. set: { difficulty, customers, reply }
+  function startSession(days, set) {
+    const cfg = { days, difficulty: set.difficulty, customers: set.customers || null, reply: set.reply || 'auto' };
+    const v = SS.validateConfig(cfg, { data: D, isUnlocked });
     if (!v.ok) return false;
-    store.difficulty = difficulty;
+    store.difficulty = cfg.difficulty;
     saveStore();
-    ui.session = newSession(v.days, difficulty);
+    ui.session = newSession(Object.assign(cfg, { days: v.days }));
     startShift(SS.nextDay(ui.session));
     return true;
   }
@@ -616,8 +703,17 @@
     const s = ui.session;
     if (!s) return '';
     const d = SS.difficulty(s.difficulty);
+    const r = SS.replySpeed(s.reply);
     const pos = s.days.indexOf(E.st.n) + 1;
-    return '<span class="diff-chip diff-' + d.id + '" title="' + esc(d.changes.join(' · ')) + '">' + esc(d.label) +
+    const all = dayCount(E.st.n), k = E.st.convs.length;
+    const tip = [
+      d.label + ': ' + d.blurb,
+      (k < all ? k + ' of ' + all : 'All ' + all) + ' customers',
+      r.id === 'auto' ? 'Reply speed set by the difficulty' : r.label + ' replies',
+      SS.isPractice(s) ? 'Practice: doesn’t unlock days or change best scores' : 'Counts toward unlocking days and best scores'
+    ];
+    return '<span class="diff-chip diff-' + d.id + '" title="' + esc(tip.join(' · ')) + '">' + esc(d.label) +
+      (SS.isPractice(s) && !d.practice ? '<span class="dct"> · Practice</span>' : '') +
       (s.days.length > 1 ? '<span class="dct"> · ' + pos + ' of ' + s.days.length + '</span>' : '') + '</span>';
   }
 
@@ -1455,9 +1551,19 @@
       html = '<div class="modal"><div class="md-ic warn">' + icon('rotate', 22) + '</div><h3>Reset all progress?</h3>' +
         '<p>This clears your scores and stars and locks Days 2–5 again. Your agent name and settings are kept.</p>' +
         '<div class="md-actions"><button class="btn" data-act="resume">Cancel</button><button class="btn btn-danger" data-act="confirm-reset">Reset progress</button></div></div>';
+    } else if (kind === 'shift') {
+      html = shiftSettingsHTML();
     }
     overlay.innerHTML = html;
     overlay.classList.add('open');
+    if (kind === 'shift') {
+      const m = $('.ss-modal', overlay);
+      m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-labelledby', 'ssTitle');
+      refreshShiftSettings();
+      const first = $('.seg-b.on', overlay);
+      if (first) setTimeout(() => first.focus({ preventScroll: true }), 30);
+      return;
+    }
     const primary = $('.btn-primary, .btn-danger', overlay);
     if (primary) setTimeout(() => primary.focus(), 30);
   }
@@ -1817,7 +1923,7 @@
         '<div class="rot-stage" aria-hidden="true">' +
           '<svg class="rot-arrow" viewBox="0 0 160 160" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
             '<path d="M122 52a58 58 0 0 0-84-6"/><path d="M38 30v16h16"/></svg>' +
-          '<div class="rot-phone"><span class="rot-screen"><img src="assets/img/logo-192.png" alt="" draggable="false"></span></div>' +
+          '<div class="rot-phone"><span class="rot-screen">' + SR.logo.tile(34, { word: false }) + '</span></div>' +
         '</div>' +
         '<h2>Turn your phone sideways</h2>' +
         '<p>Your shift plays in landscape, just like on a computer. The clock is paused until you turn it.</p>' +
@@ -2047,12 +2153,13 @@
     const d = rep.day;
     const sess = ui.session;
     const diff = SS.difficulty(sess.difficulty);
-    const practice = diff.practice;
+    const practice = SS.isPractice(sess);
+    const why = sess.practiceReasons || (practice ? ['Easy difficulty'] : []);
     SS.recordDay(sess, rep);
     rememberSession(sess);
     const prev = store.progress[d.n];
     const isBest = !practice && (!prev || rep.score > prev.best);
-    // Easy is practice: it doesn't unlock days or change best scores
+    // Practice (Easy, fewer customers or slow replies) doesn't unlock days or change best scores
     if (!practice) {
       store.progress[d.n] = {
         best: Math.max(rep.score, prev ? prev.best : 0),
@@ -2076,7 +2183,7 @@
     let headline, sub;
     if (rep.passed) {
       headline = rep.stars === 3 ? 'Outstanding shift!' : rep.stars === 2 ? 'Great shift — well done.' : 'Shift passed.';
-      sub = practice ? 'You reached the pass mark at Easy. Practice results don’t count — play it at Intermediate or Hard to ' + (next ? 'unlock Day ' + next.n : 'record your best score') + '.'
+      sub = practice ? 'You reached the pass mark in a practice shift (' + why.join(' · ') + '). Practice results don’t count — use the default shift settings, or harder ones, to ' + (next ? 'unlock Day ' + next.n : 'record your best score') + '.'
         : next ? 'You passed Day ' + d.n + '. Day ' + next.n + ' · ' + next.title + ' is unlocked.' : 'You completed the final day of training — you’re ready for the floor.';
     } else {
       headline = 'Shift complete — keep practicing.';
@@ -2114,7 +2221,7 @@
             '<div class="rp-score">' + scoreRing(rep.score, rep.passed) +
               '<div class="big-stars">' + [1, 2, 3].map(i => '<span class="' + (i <= rep.stars ? '' : 'off') + '">' + icon('star', 26) + '</span>').join('') + '</div>' +
               (isBest && prev ? '<span class="pill pill-success">' + icon('trending', 12) + 'New personal best</span>' : '<span class="pill pill-neutral">Shift length ' + secs(rep.duration) + '</span>') +
-              (practice ? '<span class="pill pill-info">' + icon('sparkle', 12) + 'Practice · Easy</span>' : '') +
+              (practice ? '<span class="pill pill-info">' + icon('sparkle', 12) + esc('Practice · ' + why.join(' · ')) + '</span>' : '') +
             '</div>' +
           '</section>' +
           '<section class="kpis">' +
@@ -2215,8 +2322,11 @@
       incomplete: s.endedEarly
         ? ['Session ended early', 'You played ' + r.completedDays + ' of ' + r.plannedDays + ' days. A pass or fail needs every day of the session, so this one has none — the results below cover what you played.']
         : ['Session in progress', 'You’ve played ' + r.completedDays + ' of ' + r.plannedDays + ' days. Continue with Day ' + nextN + ' to finish it — a pass or fail needs every day of the session.'],
-      practice: ['Practice session complete', 'Easy sessions are practice: they show every result, without a pass or fail.']
+      practice: ['Practice session complete', 'Practice sessions (' + r.settings.practiceReasons.join(' · ') + ') show every result, without a pass or fail.']
     }[r.status];
+    const setTags = [];
+    if (r.settings.customers) setTags.push('Up to ' + r.settings.customers + ' customers a day');
+    if (r.settings.reply !== 'auto') setTags.push(r.settings.replyLabel + ' replies');
     const actions =
       (resumable ? '<button class="btn btn-primary btn-lg" data-act="session-next">Continue to Day ' + nextN + ' ' + icon('arrowRight', 16) + '</button>' : '') +
       '<button class="btn btn-lg' + (resumable ? '' : ' btn-primary') + '" data-act="setup">' + icon('sliders', 15) + 'New session</button>' +
@@ -2230,14 +2340,15 @@
               '<h1>' + esc(head[0]) + '</h1><p>' + esc(head[1]) + '</p>' +
               '<div class="sr-tags">' + statusPill(r.status) +
                 '<span class="pill pill-neutral">' + icon('target', 12) + esc(diff.label) + '</span>' +
-                '<span class="pill pill-neutral">' + icon('calendar', 12) + esc(daysLabel(s.days)) + '</span></div>' +
+                '<span class="pill pill-neutral">' + icon('calendar', 12) + esc(daysLabel(s.days)) + '</span>' +
+                setTags.map(t => '<span class="pill pill-neutral">' + icon('gear', 12) + esc(t) + '</span>').join('') + '</div>' +
               '<div class="rp-actions">' + actions + '</div></div>' +
             '<div class="rp-score">' + scoreRing(pctNum, r.status === 'passed', 'Performance') +
               '<span class="sr-total"><b>' + r.totalScore + '</b> / ' + r.maxScore + ' points</span></div>' +
           '</section>' +
           (r.completedDays ? sessionBody(s, r) : '<div class="sr-empty">' + icon('info', 16) + '<p>No day of this session was finished, so there is nothing to report yet.</p></div>') +
           '<p class="rp-formula">Each day: 45% customer satisfaction · 30% reply quality · 15% resolution rate · 10% wrap-up accuracy. ' +
-            'Session total = the sum of the day scores. Passed = every day ' + r.passScore + ' or more (the same mark as a single day). Easy and unfinished sessions have no pass/fail.</p>' +
+            'Session total = the sum of the day scores. Passed = every day ' + r.passScore + ' or more (the same mark as a single day). Practice sessions (Easy, fewer customers or slow replies) and unfinished sessions have no pass/fail.</p>' +
         '</main>' +
       '</div>';
     window.scrollTo(0, 0);
@@ -2348,15 +2459,15 @@
         $('#brief .brief-card').classList.add('brief-in');
         break;
       }
-      case 'start': startSession([Number(t.dataset.day)], store.difficulty); break;
+      case 'start': startSession([Number(t.dataset.day)], shiftSettings()); break;
       case 'retry': startShift(Number(t.dataset.day)); break;
-      case 'next': ui.day = Number(t.dataset.day); startSession([ui.day], ui.session ? ui.session.difficulty : store.difficulty); break;
+      case 'next': ui.day = Number(t.dataset.day); startSession([ui.day], ui.session ? settingsOf(ui.session) : shiftSettings()); break;
       case 'lobby': renderLobby(); window.scrollTo(0, 0); break;
       case 'unlock-all': store.unlockAll = true; saveStore(); if (ui.view === 'setup') renderSetup(); else renderLobby(); break;
       case 'setup': renderSetup(); break;
       case 'su-all': ui.setup.days = D.days.filter(d => isUnlocked(d.n)).map(d => d.n); refreshSetup(); break;
       case 'su-none': ui.setup.days = []; refreshSetup(); break;
-      case 'start-session': if (!startSession(ui.setup.days, ui.setup.difficulty)) refreshSetup(); break;
+      case 'start-session': if (!startSession(ui.setup.days, setupConfig())) refreshSetup(); break;
       case 'session-next': {
         // From a day report (the current session) or from a stored session report (resume it)
         const s = ui.view === 'session' && ui.viewing ? ui.viewing : ui.session;
@@ -2374,16 +2485,18 @@
         renderSessionReport(ui.session);
         break;
       case 'open-session': { const s = sessionById(t.dataset.id); if (s) renderSessionReport(s); break; }
-      case 'quick-diff': {
-        store.difficulty = SS.difficulty(t.dataset.diff).id;
-        saveStore();
-        $$('[data-act="quick-diff"]').forEach(b => { const on = b.dataset.diff === store.difficulty; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
-        const d = SS.difficulty(store.difficulty);
-        const bl = $('#quickBlurb'), qn = $('#quickNote');
-        if (bl) bl.textContent = d.blurb;
-        if (qn) qn.innerHTML = quickNote(ui.day, d);
+      // The gear: shift settings
+      case 'shift-settings': openModal('shift'); break;
+      case 'ss-cust': store.customers = t.dataset.v === 'all' ? null : Number(t.dataset.v); saveStore(); refreshShiftSettings(); break;
+      case 'ss-diff': store.difficulty = SS.difficulty(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
+      case 'ss-reply': store.reply = SS.replySpeed(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
+      case 'ss-defaults':
+        store.customers = SS.DEFAULT_SETTINGS.customers;
+        store.reply = SS.DEFAULT_SETTINGS.reply;
+        if (ui.view !== 'setup') store.difficulty = SS.DEFAULT_SETTINGS.difficulty;
+        saveStore(); refreshShiftSettings();
+        { const done = $('.ss-actions .btn-primary', overlay); if (done) done.focus(); }
         break;
-      }
       case 'reset-progress': openModal('reset'); break;
       case 'confirm-reset':
         store.progress = {}; store.unlockAll = false; saveStore();

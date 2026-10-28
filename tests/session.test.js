@@ -253,3 +253,105 @@ test.describe('Informe de la sesión', () => {
     assert.equal(JSON.stringify(S.buildReport(copy, D)), JSON.stringify(S.buildReport(session, D)));
   });
 });
+
+test.describe('Ajustes del turno (la tuerquita): clientes y velocidad de respuesta', () => {
+  const ids = n => D.scenarios.filter(s => s.day === n).map(s => s.id);
+
+  test('por defecto: todos los clientes, respuestas en Auto, y no es práctica en Intermedio', () => {
+    assert.deepEqual(S.DEFAULT_SETTINGS, { difficulty: 'medium', customers: null, reply: 'auto' });
+    const s = S.createSession({ days: [3], difficulty: 'medium' }, ctx, { seed: 4 });
+    assert.equal(s.customers, null);
+    assert.equal(s.reply, 'auto');
+    assert.deepEqual(s.picks, {});
+    assert.equal(s.practice, false);
+    const o = S.startOptions(s, 3);
+    assert.equal(o.scenarios, undefined, 'sin lista: el día entero');
+    assert.deepEqual(o.pace, S.difficulty('medium').pace);
+  });
+
+  test('validación: clientes ≥ 1 entero y una velocidad conocida', () => {
+    [0, -1, 2.5, '3'].forEach(customers => {
+      const v = S.validateConfig({ days: [1], difficulty: 'medium', customers }, ctx);
+      assert.equal(v.ok, false, 'customers ' + JSON.stringify(customers));
+      assert.match(v.errors.join(' '), /customers must be 1 or more/);
+    });
+    const r = S.validateConfig({ days: [1], difficulty: 'medium', reply: 'turbo' }, ctx);
+    assert.equal(r.ok, false);
+    assert.match(r.errors.join(' '), /reply speed/);
+    assert.equal(S.validateConfig({ days: [1], difficulty: 'medium', customers: null, reply: 'slow' }, ctx).ok, true);
+  });
+
+  test('3 clientes en los días 2 y 5: 3 + 3 casos, elegidos del propio día y siempre los mismos con la misma semilla', () => {
+    const cfg = { days: [2, 5], difficulty: 'medium', customers: 3 };
+    assert.equal(S.validateConfig(cfg, ctx).scenarios, 6);
+    const a = S.createSession(cfg, ctx, { seed: 99 });
+    const b = S.createSession(cfg, ctx, { seed: 99 });
+    assert.deepEqual(a.picks, b.picks);
+    [2, 5].forEach(n => {
+      assert.equal(a.picks[n].length, 3);
+      assert.equal(new Set(a.picks[n]).size, 3, 'sin repetidos');
+      a.picks[n].forEach(id => assert.ok(ids(n).includes(id), id + ' es del día ' + n));
+      assert.deepEqual(S.startOptions(a, n).scenarios, a.picks[n]);
+    });
+    const seen = new Set();
+    for (let seed = 1; seed <= 10; seed++) seen.add(JSON.stringify(S.createSession(cfg, ctx, { seed }).picks[5].slice().sort()));
+    assert.ok(seen.size > 3, 'semillas distintas eligen clientes distintos: ' + seen.size);
+  });
+
+  test('más clientes de los que tiene el día: ese día se juega entero', () => {
+    const s = S.createSession({ days: [1, 5], difficulty: 'medium', customers: 5 }, ctx, { seed: 2 });
+    assert.equal(s.picks[1], undefined, 'el día 1 tiene 3 clientes');
+    assert.equal(s.picks[5].length, 5);
+    assert.equal(s.scenarios, 3 + 5);
+  });
+
+  test('la velocidad de respuesta reemplaza la de la dificultad; Auto la deja', () => {
+    const opt = (difficulty, reply) => S.startOptions(S.createSession({ days: [1], difficulty, reply }, ctx, { seed: 1 }), 1).pace;
+    assert.equal(opt('hard', 'auto').reply, S.difficulty('hard').pace.reply);
+    assert.equal(opt('hard', 'slow').reply, 1.5);
+    assert.equal(opt('easy', 'fast').reply, 0.6);
+    assert.equal(opt('medium', 'normal').reply, 1);
+    assert.equal(opt('hard', 'slow').decay, S.difficulty('hard').pace.decay, 'solo cambia la respuesta');
+  });
+
+  test('cuándo es práctica: Fácil, menos clientes o respuestas lentas (rápidas sí cuentan)', () => {
+    const p = cfg => S.createSession(Object.assign({ days: [2] }, cfg), ctx, { seed: 1 });
+    assert.deepEqual(p({ difficulty: 'medium' }).practiceReasons, []);
+    assert.deepEqual(p({ difficulty: 'hard', reply: 'fast' }).practiceReasons, []);
+    assert.deepEqual(p({ difficulty: 'medium', reply: 'normal' }).practiceReasons, []);
+    assert.deepEqual(p({ difficulty: 'easy' }).practiceReasons, ['Easy difficulty']);
+    assert.deepEqual(p({ difficulty: 'medium', customers: 2 }).practiceReasons, ['Fewer customers']);
+    assert.deepEqual(p({ difficulty: 'medium', customers: 4 }).practiceReasons, [], 'el día 2 tiene 4: no son menos');
+    assert.deepEqual(p({ difficulty: 'easy', customers: 1, reply: 'slow' }).practiceReasons, ['Easy difficulty', 'Fewer customers', 'Slow replies']);
+    assert.equal(p({ difficulty: 'medium', reply: 'slow' }).practice, true);
+    // configPractice da lo mismo antes de crear la sesión
+    assert.deepEqual(S.configPractice({ days: [2], difficulty: 'medium', customers: 2 }, D), ['Fewer customers']);
+    assert.deepEqual(S.configPractice({ days: [1], difficulty: 'medium', customers: 3 }, D), []);
+  });
+
+  test('sesión de 2 clientes en el día 3 con las mejores respuestas: informe de práctica con 2 casos', () => {
+    const { session, report } = playSession({ days: [3], difficulty: 'medium', customers: 2 }, strategies.best(), 5);
+    assert.equal(report.status, 'practice');
+    assert.equal(report.plannedScenarios, 2);
+    assert.equal(report.completedScenarios, 2);
+    assert.equal(JSON.stringify(report.convs.map(c => c.id).sort()), JSON.stringify(session.picks[3].slice().sort()));
+    assert.equal(report.settings.customers, 2);
+    assert.deepEqual(report.settings.practiceReasons, ['Fewer customers']);
+  });
+
+  test('respuestas rápidas en Intermedio cuentan: puede aprobar', () => {
+    const { report } = playSession({ days: [1], difficulty: 'medium', reply: 'fast' }, strategies.best(), 3);
+    assert.equal(report.status, 'passed');
+    assert.equal(report.settings.reply, 'fast');
+  });
+
+  test('sesiones guardadas antes de los ajustes: Fácil sigue siendo práctica y el resto cuenta', () => {
+    const old = { id: 'x', createdAt: '2026-11-02T09:00:00.000Z', difficulty: 'easy', days: [1], scenarios: 3, seed: 1, attempts: {}, results: {}, endedEarly: false };
+    assert.equal(S.isPractice(old), true);
+    assert.equal(S.isPractice(Object.assign({}, old, { difficulty: 'hard' })), false);
+    const o = S.startOptions(Object.assign({}, old, { difficulty: 'hard' }), 1);
+    assert.deepEqual(o.pace, S.difficulty('hard').pace);
+    assert.equal(o.scenarios, undefined);
+    assert.equal(S.buildReport(old, D).plannedScenarios, 3);
+  });
+});

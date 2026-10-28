@@ -8,16 +8,31 @@ y la corrección de pistas en las respuestas. Código: `assets/js/session.js` (r
 
 - Una **sesión** = los días elegidos, jugados uno tras otro con la misma dificultad. El motor sigue
   jugando un día cada vez; la sesión solo encadena los días y junta sus resultados.
-- Pantalla **Set up a training session**: casillas por día (con sus clientes, motivos, canal y
+- Pantalla de varios días (desde la tuerquita: «Play several days in a row»): casillas por día (con sus clientes, motivos, canal y
   habilidades), «Select all available», «Clear», tarjetas de dificultad y un resumen con días,
   clientes y orden. «Start session» solo se activa si `validateConfig` no da errores
   (al menos un día, días existentes y desbloqueados, sin repetidos, dificultad válida).
 - Los días bloqueados siguen la regla de siempre (aprobar el día anterior o «Unlock all days»).
-- Desde el lobby, «Start shift» crea una sesión de un solo día con la dificultad elegida allí.
+- Desde el lobby, «Start shift» crea una sesión de un solo día con los ajustes de la tuerquita (⚙).
 - Tras cada día: «Continue to Day N», «Retry Day N» (reemplaza el resultado de ese día) o
   «End session · report». Al terminar el último día: «View session report».
 - Si se sale a mitad de un día, ese día no puntúa; la sesión conserva los días terminados y se
   puede **continuar** desde «Session reports». Una sesión sin ningún día terminado no se guarda.
+
+### Ajustes del turno (la tuerquita)
+
+| Ajuste | Opciones | Qué hace |
+| --- | --- | --- |
+| Customers | 1 … todos los del día | Con menos, se eligen al azar (fijos para la sesión, por su semilla) y el primero llega al empezar; los demás mantienen su separación. Motor: `startDay(n, { scenarios: [ids] })`. |
+| Difficulty | Easy · Intermediate · Hard | La tabla de abajo. En la pantalla de varios días se elige allí. |
+| How fast customers reply | Auto · Fast ×0,6 · Normal ×1 · Slow ×1,5 | Reemplaza `pace.reply` de la dificultad; Auto la deja como está. |
+
+«Use default settings» = Intermedio, todos los clientes, Auto. Un turno es **de práctica** (no
+desbloquea días ni cambia la mejor puntuación; el informe no da aprobado/suspenso) si es Fácil, si
+algún día tiene menos clientes de los que trae o si las respuestas son lentas. Rápidas sí cuentan
+(es más presión). Las sesiones guardadas antes de estos ajustes siguen la regla anterior (solo
+Fácil es práctica). Pruebas: `tests/session.test.js` («Ajustes del turno») y
+`tests/engine-pace.test.js` («Turno más corto»).
 
 ## 2. Qué cambia realmente con la dificultad
 

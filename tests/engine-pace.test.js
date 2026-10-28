@@ -116,3 +116,42 @@ test.describe('Semilla por turno', () => {
     assert.deepEqual(plain(again.waitForTurn('d1-ana').order), seeded);
   });
 });
+
+test.describe('Turno más corto (o.scenarios)', () => {
+  const three = () => world({ scenarios: [
+    scenario(),
+    scenario({ id: 'd1-bo', arrive: 20, customer: { first: 'Bo', last: 'Test' } }),
+    scenario({ id: 'd1-cy', arrive: 40, customer: { first: 'Cy', last: 'Test' } })
+  ] });
+
+  test('solo entran los clientes elegidos, en su orden de llegada', () => {
+    const sim = started(three(), { scenarios: ['d1-cy', 'd1-bo'] });
+    assert.deepEqual(sim.E.st.convs.map(c => c.id), ['d1-bo', 'd1-cy']);
+  });
+
+  test('el primero elegido llega al empezar (1,2 s) y los demás guardan su separación', () => {
+    const sim = started(three(), { scenarios: ['d1-bo', 'd1-cy'], pace: { arrive: 0.5 } });
+    sim.runUntil(() => sim.conv('d1-cy').arrived, 60000);
+    assert.equal(sim.conv('d1-bo').arrivedAt, 1200);
+    assert.equal(sim.conv('d1-cy').arrivedAt, 1200 + 10000, '20 s de separación × 0,5');
+  });
+
+  test('ids que no son del día se ignoran; si ninguno lo es, se juega el día entero', () => {
+    const a = started(three(), { scenarios: ['d1-bo', 'nope'] });
+    assert.deepEqual(a.E.st.convs.map(c => c.id), ['d1-bo']);
+    const b = started(three(), { scenarios: ['nope'] });
+    assert.deepEqual(b.E.st.convs.map(c => c.id), ['d1-ana', 'd1-bo', 'd1-cy']);
+    const c = started(three(), { scenarios: [] });
+    assert.equal(c.E.st.convs.length, 3, 'una lista vacía es el día entero');
+  });
+
+  test('el turno corto termina y el informe cuenta solo a los clientes elegidos', () => {
+    const sim = started(three(), { scenarios: ['d1-ana'] });
+    sim.waitForTurn('d1-ana'); sim.send('d1-ana', 3);
+    sim.waitForTurn('d1-ana'); sim.send('d1-ana', 0);
+    sim.waitForTurn('d1-ana'); sim.send('d1-ana', 0);
+    sim.waitForEnd('d1-ana'); sim.E.wrapUp('d1-ana', 'ok');
+    sim.runUntil(() => sim.E.st.ended, 30000);
+    assert.equal(sim.report.n, 1);
+  });
+});
