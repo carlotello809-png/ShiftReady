@@ -1,0 +1,12 @@
+{
+  "name": "shiftready-db-tests",
+  "private": true,
+  "type": "module",
+  "description": "Offline tests for the Supabase migrations: real Postgres (PGlite, WebAssembly), no Docker and no connection to the project. The simulator itself still needs no install.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.7"
+  }
+}

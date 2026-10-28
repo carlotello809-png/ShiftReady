@@ -1,0 +1,58 @@
+/* ShiftReady — shared design values: colour, type, spacing, shape, depth and motion.
+   One source for the SaaS platform and the simulator. Only raw values live here (prefix --sr-);
+   each product maps them to its own semantic names, light and dark, in its own stylesheet.
+   Used today by prototype/proto.css. The simulator (assets/css/app.css) does not load it yet. */
+:root {
+  /* Brand */
+  --sr-navy-900: #0b1b2b;
+  --sr-navy-800: #0f2438;          /* sidebar · the simulator rail */
+  --sr-navy-700: #1a3754;
+  --sr-navy-600: #284a6d;
+  --sr-blue-700: #1b46ad;
+  --sr-blue-600: #2152c4;
+  --sr-blue-500: #2b62e3;          /* primary action */
+  --sr-blue-100: #d9e5fd;
+  --sr-blue-50: #eef3fe;
+  --sr-teal-600: #0f8f62;
+  --sr-teal-500: #16a874;          /* ShiftReady green */
+  --sr-teal-50: #e6f5ee;
+
+  /* Neutrals */
+  --sr-gray-0: #ffffff;
+  --sr-gray-25: #fafbfc;
+  --sr-gray-50: #f6f8fa;
+  --sr-gray-100: #eef2f6;
+  --sr-gray-200: #e3e8ee;
+  --sr-gray-300: #d4dce5;
+  --sr-gray-400: #a9b6c4;
+  --sr-gray-500: #6f8296;
+  --sr-gray-600: #44576c;
+  --sr-gray-900: #10243a;
+
+  /* Status on a light background: text / fill / line. The text colours pass AA on their fill.
+     Always pair a status colour with a word or an icon. */
+  --sr-success: #12915c;  --sr-success-bg: #e6f5ee;  --sr-success-line: #c7e9d7;
+  --sr-warning: #9a6310;  --sr-warning-bg: #fdf4e1;  --sr-warning-line: #f0d9a4;
+  --sr-danger: #c73434;   --sr-danger-bg: #fcebeb;   --sr-danger-line: #f5cdcd;
+  --sr-info: #2152c4;     --sr-info-bg: #eef3fe;     --sr-info-line: #d9e5fd;
+
+  /* Typography */
+  --sr-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --sr-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --sr-fs-xs: 12px; --sr-fs-sm: 13px; --sr-fs-md: 14px; --sr-fs-lg: 16px;
+  --sr-fs-xl: 20px; --sr-fs-2xl: 24px; --sr-fs-3xl: 30px;
+  --sr-lh-tight: 1.2; --sr-lh: 1.5;
+
+  /* Spacing (4 px base) */
+  --sr-sp-1: 4px; --sr-sp-2: 8px; --sr-sp-3: 12px; --sr-sp-4: 16px; --sr-sp-5: 20px;
+  --sr-sp-6: 24px; --sr-sp-8: 32px; --sr-sp-10: 40px; --sr-sp-12: 48px;
+
+  /* Shape and depth (2 px corners, decided 27 Oct 2026; the simulator uses 0 today) */
+  --sr-radius: 2px;
+  --sr-shadow-1: 0 1px 2px rgba(16, 36, 58, .06);
+  --sr-shadow-2: 0 8px 24px rgba(16, 36, 58, .12), 0 1px 3px rgba(16, 36, 58, .08);
+
+  /* Motion */
+  --sr-ease: cubic-bezier(.23, 1, .32, 1);
+  --sr-dur: 160ms;
+}

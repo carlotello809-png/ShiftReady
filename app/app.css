@@ -1,0 +1,30 @@
+/* ShiftReady platform — the few styles the real app adds on top of assets/css/platform.css */
+
+.boot-msg { padding: var(--sp-8); color: var(--text-3); font-family: var(--font); }
+
+/* Strip that names the environment (development / production) */
+.env-bar { position: sticky; top: 0; z-index: 60; min-height: var(--banner-h); display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: 4px var(--sp-4); background: var(--navy-900); color: #b9cbe0; font-size: var(--fs-xs); border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.env-bar b { color: #fff; letter-spacing: .02em; }
+.env-bar .sp { flex: 1; }
+.env-bar a, .env-bar button { color: inherit; font-weight: 600; }
+
+/* Two-step verification */
+.qr { display: grid; place-items: center; width: 200px; height: 200px; margin: 0 auto; padding: 10px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); }
+.qr img { width: 100%; height: 100%; }
+.secret { font-family: var(--mono); font-size: var(--fs-sm); word-break: break-all; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: var(--radius); }
+.code-input { font-family: var(--mono); font-size: var(--fs-xl); letter-spacing: .4em; text-align: center; }
+
+/* A link to copy (invitations) */
+.linkbox { display: flex; gap: var(--sp-2); align-items: stretch; }
+.linkbox .input { flex: 1; min-width: 0; font-family: var(--mono); font-size: var(--fs-xs); }
+
+/* Inline select inside tables */
+.table .select.sm { height: 30px; padding: 0 6px; font-size: var(--fs-sm); }
+
+.soon { border-style: dashed; }
+.muted-row td { color: var(--text-3); }
+
+@media (max-width: 640px) {
+  .env-bar { position: relative; }
+  .topbar { top: 0; }
+}
