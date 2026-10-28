@@ -177,6 +177,11 @@ function home() {
 }
 
 const PUBLIC = ['', 'login', 'signup', 'recover', 'check-email', 'request', 'invite'];
+const TITLES = {
+  login: 'Iniciar sesión', signup: 'Crear cuenta', recover: 'Recuperar contraseña', 'check-email': 'Revisa tu correo', reset: 'Nueva contraseña',
+  request: 'Solicitar acceso', invite: 'Invitación', mfa: 'Verificación en dos pasos', workspaces: 'Espacios de trabajo',
+  'no-org': 'Sin organización', disabled: 'Acceso desactivado', suspended: 'Empresa suspendida'
+};
 function gate(r) {
   if (!S.session) return PUBLIC.indexOf(r.name) === -1 ? '#/login' : null;
   // Password recovery: Supabase asks for the second step before changing the password of an account that has it
@@ -239,7 +244,10 @@ function render() {
     const r = S.view;
     const screen = SCREENS[r.name];
     if (r.name === 'w' || r.name === 'platform') html += shell(r);
-    else html += screen ? screen(r) : SCREENS.login(r);
+    else {
+      document.title = (TITLES[r.name] || TITLES.login) + ' · ShiftReady';
+      html += screen ? screen(r) : SCREENS.login(r);
+    }
   }
   root.innerHTML = html + (S.dialog ? dialogHtml() : '') + (S.toast ? '<div class="toast" role="status">' + ic('checkCircle', 16) + '<span>' + esc(S.toast) + '</span></div>' : '');
 }
@@ -612,9 +620,15 @@ const ACTION = {
   'invitations.insert': 'Invitación creada', 'invitations.update': 'Invitación actualizada', 'invitations.delete': 'Invitación eliminada',
   'platform_admins.insert': 'Rol de plataforma asignado', 'platform_admins.update': 'Rol de plataforma cambiado', 'platform_admins.delete': 'Rol de plataforma retirado'
 };
+// Readable values for the audit detail (ids and timestamps are left out)
+const FIELD = { status: 'Estado', role: 'Rol', team_role: 'Papel', plan: 'Plan', seat_limit: 'Puestos', name: 'Nombre', timezone: 'Zona horaria', locale: 'Idioma' };
+const VALUE = { pending: 'Pendiente', accepted: 'Aceptada', revoked: 'Anulada', expired: 'Caducada', active: 'Activo', disabled: 'Desactivado', suspended: 'Suspendida', trial: 'Prueba', coach: 'Coach', member: 'Miembro' };
+const readable = (k, v) => (v == null ? '—' : k === 'role' ? (ROLE[v] || v) : k === 'plan' ? (PLAN[v] || v) : (VALUE[v] || String(v)));
 function auditDetail(r) {
   const d = r.detail || {};
-  if (r.action.endsWith('.update')) return Object.keys(d).filter(k => k !== 'reason').map(k => k + ': ' + JSON.stringify(d[k].from) + ' → ' + JSON.stringify(d[k].to)).join(' · ') + (d.reason ? ' · motivo: ' + d.reason : '');
+  if (r.action.endsWith('.update')) {
+    return Object.keys(d).filter(k => FIELD[k]).map(k => FIELD[k] + ': ' + readable(k, d[k].from) + ' → ' + readable(k, d[k].to)).join(' · ') + (d.reason ? ' · Motivo: ' + d.reason : '');
+  }
   if (d.email) return d.email + (d.role ? ' · ' + (ROLE[d.role] || d.role) : '');
   if (d.name) return d.name;
   if (d.role) return ROLE[d.role] || d.role;
