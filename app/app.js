@@ -123,7 +123,17 @@ const ERR = {
   over_request_rate_limit: 'Demasiados intentos seguidos. Espera un momento.',
   mfa_verification_failed: 'El código no es correcto o ya caducó. Prueba con el siguiente.',
   insufficient_aal: 'Primero verifica tu segundo paso.',
-  otp_expired: 'El enlace caducó o ya se usó. Pide uno nuevo.'
+  otp_expired: 'El enlace caducó o ya se usó. Pide uno nuevo.',
+  invalid_days: 'Elige días que formen parte del entrenamiento.',
+  campaign_closed: 'Esta campaña no está activa ahora mismo.',
+  practice_disabled: 'Tu empresa no permite la práctica libre.',
+  invalid_difficulty: 'Elige una dificultad válida.',
+  invalid_customers: 'El número de clientes no es válido.',
+  invalid_reply: 'Elige una velocidad de respuesta válida.',
+  too_many_sessions: 'Empezaste demasiadas sesiones en la última hora. Espera un poco.',
+  session_closed: 'Esta sesión ya está verificada y no se puede cambiar.',
+  invalid_result: 'El resultado recibido no es válido.',
+  result_too_large: 'El resultado es demasiado grande para guardarlo.'
 };
 function msg(e) {
   if (!e) return '';
@@ -406,10 +416,12 @@ function mfaVerifyScreen() {
    ================================================================ */
 const NAV = {
   admin: [['General', [['inicio', 'Inicio', 'home']]], ['Personas', [['personas', 'Directorio', 'users'], ['equipos', 'Equipos', 'layers'], ['invitaciones', 'Invitaciones', 'mail']]],
-    ['Formación', [['campanas', 'Campañas', 'flag', 5, 'admin/campaigns'], ['escenarios', 'Escenarios', 'chat', 5, 'admin/scenarios']]], ['Resultados', [['informes', 'Informes', 'trending', 5, 'admin/reports']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
+    ['Formación', [['campanas', 'Campañas', 'flag'], ['escenarios', 'Escenarios', 'chat', 5, 'admin/scenarios']]], ['Resultados', [['informes', 'Informes', 'trending', 5, 'admin/reports']]],
+    ['Mi formación', [['entrenamientos', 'Entrenar', 'play'], ['historial', 'Mi historial', 'clock']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
   coach: [['General', [['inicio', 'Inicio', 'home']]], ['Equipo', [['participantes', 'Participantes', 'users']]],
-    ['Formación', [['campanas', 'Campañas', 'flag', 4, 'coach/campaigns'], ['revision', 'Revisión de conversaciones', 'chat', 4, 'coach/review']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
-  agent: [['General', [['inicio', 'Inicio', 'home']]], ['Entrenar', [['entrenar', 'Simulador', 'play']]], ['Resultados', [['historial', 'Historial', 'clock', 3, 'agent/history']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
+    ['Formación', [['campanas', 'Campañas', 'flag', 4, 'coach/campaigns'], ['revision', 'Revisión de conversaciones', 'chat', 4, 'coach/review']]],
+    ['Mi formación', [['entrenamientos', 'Entrenar', 'play'], ['historial', 'Mi historial', 'clock']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
+  agent: [['General', [['inicio', 'Inicio', 'home']]], ['Entrenar', [['entrenamientos', 'Mis entrenamientos', 'flag']]], ['Resultados', [['historial', 'Historial', 'clock']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
   platform: [['Plataforma', [['empresas', 'Empresas', 'building']]], ['Gobierno', [['auditoria', 'Actividad y auditoría', 'list']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]]
 };
 
@@ -417,21 +429,26 @@ function context(r) {
   if (r.name === 'platform') return { kind: 'platform', role: 'platform', page: r.args[0] || 'empresas', base: '#/platform/', title: 'Consola de plataforma', short: 'SR', roleLabel: ROLE[S.platformRole] };
   const ws = activeWs().find(w => w.org_id === r.args[0]);
   if (!ws) return null;                                     // access changed meanwhile (suspended, disabled)
-  return { kind: 'org', org: ws.org_id, ws, role: ws.role, page: r.args[1] || 'inicio', base: '#/w/' + ws.org_id + '/', title: ws.org_name, short: initials(ws.org_name), roleLabel: ROLE[ws.role] };
+  return { kind: 'org', org: ws.org_id, ws, role: ws.role, page: r.args[1] || 'inicio', arg: r.args[2] || null, base: '#/w/' + ws.org_id + '/', title: ws.org_name, short: initials(ws.org_name), roleLabel: ROLE[ws.role] };
 }
+// Pages reached from another page, not from the menu: [title, menu item they belong to]
+const SUBPAGES = { sesion: ['Nueva sesión', 'entrenamientos'], informe: ['Informe de la sesión', 'historial'] };
 
 function shell(r) {
   const c = context(r);
   if (!c) { setTimeout(() => go(home()), 0); return '<p class="boot-msg">Cargando…</p>'; }
   const nav = NAV[c.role];
-  const item = nav.reduce((a, g) => a.concat(g[1]), []).find(i => i[0] === c.page);
-  document.title = (item ? item[1] : 'ShiftReady') + ' · ' + c.title + ' · ShiftReady';
+  const items = nav.reduce((a, g) => a.concat(g[1]), []);
+  const sub = SUBPAGES[c.page] && items.some(i => i[0] === SUBPAGES[c.page][1]) ? SUBPAGES[c.page] : null;
+  const item = items.find(i => i[0] === c.page);
+  const current = sub ? sub[1] : c.page;
+  document.title = (sub ? sub[0] : item ? item[1] : 'ShiftReady') + ' · ' + c.title + ' · ShiftReady';
   const options = activeWs().length + (S.platformRole ? 1 : 0);
   const name = (S.profile && S.profile.full_name) || S.session.user.email;
-  const page = item ? (item[3] ? soonPage(item) : PAGES[c.page](c)) : empty('alert', 'Esta página no existe', '', btn('Ir al inicio', { href: c.base + (c.kind === 'platform' ? 'empresas' : 'inicio'), kind: 'primary' }));
+  const page = sub ? PAGES[c.page](c) : item ? (item[3] ? soonPage(item) : PAGES[c.page](c)) : empty('alert', 'Esta página no existe', '', btn('Ir al inicio', { href: c.base + (c.kind === 'platform' ? 'empresas' : 'inicio'), kind: 'primary' }));
   return '<div class="shell">' + (S.drawer ? '<div class="scrim" data-act="drawer" aria-hidden="true"></div>' : '') +
     '<aside class="sidebar' + (S.drawer ? ' open' : '') + '" id="sidebar" aria-label="Navegación principal"><a class="sb-brand" href="' + c.base + (c.kind === 'platform' ? 'empresas' : 'inicio') + '">' + brand(28) + '<span>' + wordmark() + '<small>' + esc(c.kind === 'platform' ? 'Consola de plataforma' : 'Formación de agentes') + '</small></span></a>' +
-    '<nav class="sb-nav">' + nav.map(g => '<div class="sb-group"><h2>' + esc(g[0]) + '</h2><ul>' + g[1].map(i => '<li><a class="sb-link" href="' + c.base + i[0] + '"' + (i[0] === c.page ? ' aria-current="page"' : '') + '>' + ic(i[2], 17) + '<span>' + esc(i[1]) + '</span>' + (i[3] ? '<span class="tag" style="margin-left:auto;font-size:10px">Etapa ' + i[3] + '</span>' : '') + '</a></li>').join('') + '</ul></div>').join('') + '</nav>' +
+    '<nav class="sb-nav">' + nav.map(g => '<div class="sb-group"><h2>' + esc(g[0]) + '</h2><ul>' + g[1].map(i => '<li><a class="sb-link" href="' + c.base + i[0] + '"' + (i[0] === current ? ' aria-current="page"' : '') + '>' + ic(i[2], 17) + '<span>' + esc(i[1]) + '</span>' + (i[3] ? '<span class="tag" style="margin-left:auto;font-size:10px">Etapa ' + i[3] + '</span>' : '') + '</a></li>').join('') + '</ul></div>').join('') + '</nav>' +
     '<div class="sb-foot"><b>' + esc(c.title) + '</b>' + esc(c.roleLabel) + '</div></aside>' +
     '<div class="main"><header class="topbar">' +
       '<button class="icon-btn tb-menu" data-act="drawer" aria-label="Abrir menú" aria-expanded="' + S.drawer + '" aria-controls="sidebar">' + ic('menu', 20) + '</button>' +
@@ -480,13 +497,13 @@ const inviteStatus = i => (i.status === 'pending' && new Date(i.expires_at) <= n
 const PAGES = {
   inicio: c => {
     const steps = {
-      admin: [['layers', 'Crea los equipos', 'Agrupa a las personas y asígnales un coach.', c.base + 'equipos'], ['mail', 'Invita a supervisores y agentes', 'Tú eliges el rol; la persona no puede cambiarlo.', c.base + 'invitaciones']],
+      admin: [['layers', 'Crea los equipos', 'Agrupa a las personas y asígnales un coach.', c.base + 'equipos'], ['mail', 'Invita a supervisores y agentes', 'Tú eliges el rol; la persona no puede cambiarlo.', c.base + 'invitaciones'], ['flag', 'Crea una campaña', 'Días, dificultad y equipos que deben entrenar.', c.base + 'campanas']],
       coach: [['users', 'Revisa tu equipo', 'Las personas de los equipos que coacheas.', c.base + 'participantes'], ['mail', 'Invita agentes', 'Solo a tus equipos.', c.base + 'participantes']],
-      agent: [['play', 'Entrena con el simulador', 'Atiende chats con las políticas reales.', c.base + 'entrenar']]
+      agent: [['flag', 'Tus entrenamientos', 'Las campañas que te asignaron y la práctica libre.', c.base + 'entrenamientos'], ['clock', 'Tu historial', 'Tus resultados, verificados por el servidor.', c.base + 'historial']]
     }[c.role] || [];
     return pageHead('Hola, ' + firstName(), esc(c.title) + ' · ' + esc(c.roleLabel)) +
       '<div class="grid g-2-1">' + card('Siguientes pasos', '<ul class="list">' + steps.map(s => '<li>' + ic(s[0], 16) + '<span class="meta"><a href="' + s[3] + '" style="font-weight:600;text-decoration:none;color:var(--text)">' + esc(s[1]) + '</a><small>' + esc(s[2]) + '</small></span></li>').join('') +
-        '<li>' + ic('sparkle', 16) + '<span class="meta"><b style="font-weight:500">Campañas, sesiones y resultados</b><small>Llegan en las etapas 3 a 5 del plan.</small></span></li></ul>', { flush: true }) +
+        (c.role === 'agent' ? '' : '<li>' + ic('sparkle', 16) + '<span class="meta"><b style="font-weight:500">Resultados del equipo e informes</b><small>Llegan en las etapas 4 y 5 del plan.</small></span></li>') + '</ul>', { flush: true }) +
       card('Tu cuenta', dl([['Correo', esc(S.session.user.email)], ['Rol aquí', tag(c.roleLabel, ROLE_TONE[c.role])], ['Dos pasos', S.factors.length ? tag('Activada', 'success') : '<a href="' + c.base + 'perfil">Activar</a>']])) + '</div>';
   },
 
@@ -612,6 +629,200 @@ const PAGES = {
   }
 };
 
+/* ================================================================
+   Stage 3: campaigns, training sessions, history and reports
+   ================================================================ */
+const SRD = SR.data || { days: [] };
+const SSN = SR.session;
+const DIFF_ES = { easy: 'Fácil', medium: 'Intermedio', hard: 'Difícil' };
+const REPLY_ES = { auto: 'Automática', fast: 'Rápida', normal: 'Normal', slow: 'Lenta' };
+const RESULT = { passed: ['Aprobado', 'success'], failed: ['No aprobado', 'danger'], practice: ['Práctica', 'info'], incomplete: ['Incompleta', 'warning'] };
+const VERIFY = { started: ['Sin terminar', ''], submitted: ['Pendiente de verificar', 'warning'], verified: ['Verificado', 'success'], mismatch: ['No coincide', 'danger'] };
+const dayTitle = n => { const d = SRD.days.find(x => x.n === n); return 'Día ' + n + (d ? ' · ' + d.title : ''); };
+const daysText = days => (days.length === 1 ? 'Día ' + days[0] : 'Días ' + days.join(', '));
+const REPLY_TXT = { fast: 'respuestas rápidas', normal: 'respuestas a ritmo normal', slow: 'respuestas lentas' };
+const cfgText = cfg => daysText(cfg.days) + ' · ' + DIFF_ES[cfg.difficulty] + (cfg.customers ? ' · ' + cfg.customers + ' cliente' + (cfg.customers > 1 ? 's' : '') + ' por día' : '') + (REPLY_TXT[cfg.reply] ? ' · ' + REPLY_TXT[cfg.reply] : '');
+const pctOf = v => (v == null ? '—' : Math.round(v * 100) + ' %');
+const b64url = obj => btoa(String.fromCharCode.apply(null, Array.from(new TextEncoder().encode(JSON.stringify(obj))))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const scoreCell = s => (s.score != null ? '<span class="num">' + s.score + ' / ' + s.max_score + '</span>' : '<span class="muted">—</span>');
+const resultTag = s => (s.result && RESULT[s.result] ? tag(RESULT[s.result][0], RESULT[s.result][1]) : '');
+const verifyTag = s => tag(VERIFY[s.status][0], VERIFY[s.status][1]);
+const datesText = c => (c.starts_on || c.ends_on ? (c.starts_on ? day(c.starts_on) : '…') + ' → ' + (c.ends_on ? day(c.ends_on) : '…') : 'Sin fechas');
+
+const campaignsOf = org => need('camps:' + org, async () => {
+  const [camps, ct, o] = await Promise.all([
+    q(sb.from('campaigns').select('id, name, goal, days, difficulty, customers, reply, status, starts_on, ends_on, created_at').eq('org_id', org).order('created_at', { ascending: false })),
+    q(sb.from('campaign_teams').select('campaign_id, team_id').eq('org_id', org)),
+    q(sb.from('organizations').select('practice_enabled').eq('id', org).maybeSingle())
+  ]);
+  return { camps: camps.map(c => Object.assign({ teams: ct.filter(x => x.campaign_id === c.id).map(x => x.team_id) }, c)), practice: !!(o && o.practice_enabled) };
+});
+const mySessions = org => need('mysess:' + org, () => q(sb.from('training_sessions')
+  .select('id, campaign_id, config, status, final, score, max_score, result, started_at, submitted_at, verified_at')
+  .eq('org_id', org).eq('user_id', S.session.user.id).order('started_at', { ascending: false }).limit(100)));
+
+function setupState(key, camp) {
+  if (!S.setup || S.setup.key !== key) {
+    S.setup = camp ? { key, days: camp.days.slice(), difficulty: camp.difficulty, customers: camp.customers, reply: camp.reply }
+      : { key, days: [1], difficulty: 'medium', customers: null, reply: 'auto' };
+  }
+  return S.setup;
+}
+
+Object.assign(PAGES, {
+  campanas: c => {
+    const d = campaignsOf(c.org), t = teamsOf(c.org);
+    const head = pageHead('Campañas', 'Qué días entrenan tus equipos, con qué dificultad y hasta cuándo. El asistente completo llega en la etapa 5.');
+    if (loadState(d) || loadState(t)) return head + (loadState(d) || loadState(t));
+    const teams = t.data;
+    const teamName = id => (teams.find(x => x.id === id) || {}).name || '—';
+    const form = card('Nueva campaña', '<form class="stack" data-form="campaign-new" data-arg="' + c.org + '">' + formErr('campaign-new') +
+      '<div class="form-grid"><div class="field"><label for="cn">Nombre</label><input id="cn" name="name" class="input" maxlength="120" required></div>' +
+      '<div class="field"><label for="cg">Objetivo (opcional)</label><input id="cg" name="goal" class="input" maxlength="500"></div></div>' +
+      '<div class="field"><span class="lbl">Días</span><div class="row" style="flex-wrap:wrap">' + SRD.days.map(x => '<label class="check"><input type="checkbox" name="day" value="' + x.n + '"' + (x.n === 1 ? ' checked' : '') + '> ' + esc(dayTitle(x.n)) + '</label>').join('') + '</div></div>' +
+      '<div class="form-grid"><div class="field"><label for="cd">Dificultad</label><select id="cd" name="difficulty" class="select">' + Object.keys(DIFF_ES).map(k => '<option value="' + k + '"' + (k === 'medium' ? ' selected' : '') + '>' + DIFF_ES[k] + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label for="cc">Clientes por día</label><select id="cc" name="customers" class="select"><option value="">Todos los del día</option>' + [1, 2, 3, 4].map(n => '<option value="' + n + '">' + n + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label for="cr">Velocidad de respuesta</label><select id="cr" name="reply" class="select">' + Object.keys(REPLY_ES).map(k => '<option value="' + k + '">' + REPLY_ES[k] + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label for="cs">Empieza (opcional)</label><input id="cs" name="starts_on" type="date" class="input"></div><div class="field"><label for="ce2">Termina (opcional)</label><input id="ce2" name="ends_on" type="date" class="input"></div></div>' +
+      '<div class="field"><span class="lbl">Equipos asignados</span>' + (teams.length ? '<div class="row" style="flex-wrap:wrap">' + teams.map(x => '<label class="check"><input type="checkbox" name="team" value="' + x.id + '"> ' + esc(x.name) + '</label>').join('') + '</div>' : '<p class="muted" style="font-size:13px">Crea antes un equipo en <a href="' + c.base + 'equipos">Equipos</a>.</p>') + '</div>' +
+      '<p class="muted" style="font-size:12px">Todas las personas de la campaña ven los mismos clientes en el mismo orden. Fácil o menos clientes cuentan para completarla, pero no cambian los mejores resultados.</p>' +
+      '<div>' + submit('Crear campaña', 'campaign-new') + '</div></form>');
+    return head + form + '<div class="section">' + card('Campañas de la empresa', table([
+      ['Campaña', x => '<b>' + esc(x.name) + '</b>' + (x.goal ? '<br><small class="muted">' + esc(x.goal) + '</small>' : '')],
+      ['Estado', x => tag({ active: 'Activa', draft: 'Borrador', finished: 'Finalizada' }[x.status], { active: 'success', draft: '', finished: 'info' }[x.status])],
+      ['Contenido', x => esc(cfgText(x))], ['Equipos', x => esc(x.teams.map(teamName).join(', ') || '—')], ['Fechas', x => esc(datesText(x))],
+      ['', x => btn(x.status === 'active' ? 'Finalizar' : 'Reactivar', { act: 'campaign-status', arg: x.id + ':' + (x.status === 'active' ? 'finished' : 'active'), size: 'sm', kind: 'ghost' })]
+    ], d.data.camps, 'Aún no hay campañas'), { flush: true }) + '</div>';
+  },
+
+  entrenamientos: c => {
+    const d = campaignsOf(c.org), m = mySessions(c.org);
+    const head = pageHead(c.role === 'agent' ? 'Mis entrenamientos' : 'Entrenar', c.role === 'agent' ? 'Lo que te asignó tu organización y la práctica libre.' : 'Como ' + esc(c.roleLabel.toLowerCase()) + ' puedes probar las campañas activas de la empresa y practicar.');
+    if (loadState(d)) return head + loadState(d);
+    const mine = m.data || [];
+    const active = d.data.camps.filter(x => x.status === 'active');
+    const cards = active.map(x => {
+      const last = mine.find(s => s.campaign_id === x.id && s.score != null);
+      return card(esc(x.name), (x.goal ? '<p class="muted" style="font-size:13px;margin-bottom:8px">' + esc(x.goal) + '</p>' : '') +
+        dl([['Contenido', esc(cfgText(x))], ['Fechas', esc(datesText(x))], ['Tu último resultado', last ? scoreCell(last) + ' ' + resultTag(last) : '<span class="muted">Aún no has entrenado</span>']]),
+        { actions: tag('Activa', 'success'), foot: btn('Entrenar', { href: c.base + 'sesion/' + x.id, kind: 'primary', size: 'sm', icon: 'play' }) });
+    });
+    if (d.data.practice) cards.push(card('Práctica libre', '<p class="muted" style="font-size:13px">Elige días, dificultad y ritmo. No cuenta para las campañas.</p>', { actions: tag('Siempre disponible', 'info'), foot: btn('Practicar', { href: c.base + 'sesion/practica', size: 'sm', icon: 'play' }) }));
+    return head + (cards.length ? '<div class="grid g2">' + cards.join('') + '</div>' : card('', empty('flag', 'No tienes entrenamientos asignados', 'Cuando tu empresa te asigne una campaña aparecerá aquí.')));
+  },
+
+  sesion: c => {
+    const d = campaignsOf(c.org);
+    const head = pageHead('Nueva sesión', 'Se abrirá el simulador en una pestaña nueva. Al terminar cada día, tu resultado vuelve aquí.');
+    if (loadState(d)) return head + loadState(d);
+    const practice = c.arg === 'practica';
+    const camp = practice ? null : d.data.camps.find(x => x.id === c.arg && x.status === 'active');
+    if (!practice && !camp) return head + card('', empty('flag', 'Esta campaña no está disponible', 'Puede que haya terminado o que no esté asignada a tu equipo.', btn('Volver', { href: c.base + 'entrenamientos' })));
+    if (practice && !d.data.practice) return head + card('', empty('lock', 'La práctica libre está desactivada', 'Tu empresa solo permite entrenar con campañas.'));
+    const st = setupState(c.arg, camp);
+    const allowed = camp ? camp.days : SRD.days.map(x => x.n);
+    const cfg = { days: st.days, difficulty: st.difficulty, customers: st.customers ? Number(st.customers) : null, reply: st.reply };
+    const v = SSN.validateConfig(cfg, { data: SRD });
+    const why = v.ok ? SSN.configPractice(cfg, SRD) : [];
+    const lock = camp ? ' disabled' : '';
+    const lockNote = camp ? '<p class="muted" style="font-size:12px;margin-top:6px">' + ic('lock', 12) + ' Lo define la campaña.</p>' : '';
+    return head + '<form class="grid g-2-1" data-form="session-start" data-arg="' + esc(c.arg) + '"><div class="stack">' +
+      card('1 · Días', '<div class="stack">' + SRD.days.map(x => {
+        const ok = allowed.indexOf(x.n) !== -1, on = st.days.indexOf(x.n) !== -1;
+        return '<label class="choice' + (on ? ' on' : '') + '"' + (ok ? '' : ' style="opacity:.55"') + '><input type="checkbox" data-setup="day" value="' + x.n + '"' + (on ? ' checked' : '') + (ok ? '' : ' disabled') + '><span><b>' + esc(dayTitle(x.n)) + '</b><small>' + SRD.scenarios.filter(s => s.day === x.n).length + ' clientes · ' + esc((x.focus || []).slice(0, 2).join(' · ')) + '</small></span></label>';
+      }).join('') + '</div>') +
+      card('2 · Dificultad y ritmo', '<div class="form-grid">' +
+        '<div class="field"><label for="sd">Dificultad</label><select id="sd" class="select" data-setup="difficulty"' + lock + '>' + Object.keys(DIFF_ES).map(k => '<option value="' + k + '"' + (st.difficulty === k ? ' selected' : '') + '>' + DIFF_ES[k] + '</option>').join('') + '</select></div>' +
+        '<div class="field"><label for="sc">Clientes por día</label><select id="sc" class="select" data-setup="customers"' + lock + '><option value="">Todos los del día</option>' + [1, 2, 3, 4].map(n => '<option value="' + n + '"' + (Number(st.customers) === n ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+        '<div class="field"><label for="sr">Respuestas de los clientes</label><select id="sr" class="select" data-setup="reply"' + lock + '>' + Object.keys(REPLY_ES).map(k => '<option value="' + k + '"' + (st.reply === k ? ' selected' : '') + '>' + REPLY_ES[k] + '</option>').join('') + '</select></div></div>' + lockNote) +
+      '</div>' + card('Resumen', dl([['Entrenamiento', camp ? esc(camp.name) : 'Práctica libre'], ['Contenido', v.ok ? esc(cfgText(cfg)) : '—'], ['Clientes', String(v.scenarios || 0)]]) +
+        '<div class="stack" style="margin-top:14px">' + formErr('session-start') +
+        (v.ok ? '' : alertBox('danger', 'Falta algo', 'Elige al menos un día.')) +
+        (why.length ? alertBox('info', camp ? 'Cuenta para la campaña' : 'Cuenta como práctica', camp ? 'Con estos ajustes completa la campaña, pero no cambia tus mejores resultados.' : 'No desbloquea días ni cambia tus mejores resultados.') : '') + '</div>',
+        { foot: submit('Empezar en el simulador', 'session-start', { block: true, icon: 'play', disabled: !v.ok || S.busy === 'session-start' }) }) + '</form>';
+  },
+
+  historial: c => {
+    const m = mySessions(c.org), d = campaignsOf(c.org);
+    const head = pageHead(c.role === 'agent' ? 'Historial' : 'Mi historial', 'Tus sesiones. Las ven tú, los coaches de tus equipos y los administradores de tu empresa.', btn('Nueva sesión', { href: c.base + 'entrenamientos', kind: 'primary', icon: 'play' }));
+    const launched = S.launched ? '<div class="section" style="margin-top:0">' + alertBox('info', 'Sesión en curso: ' + S.launched.title,
+      (S.launched.blocked ? 'El navegador bloqueó la pestaña nueva. <a href="' + esc(S.launched.url) + '" target="_blank" rel="noopener">Abre el simulador aquí</a>.' : 'El simulador se abrió en otra pestaña.') + ' Al terminar cada día, el resultado aparecerá aquí.') + '</div>' : '';
+    if (loadState(m)) return head + launched + loadState(m);
+    const camps = (d.data && d.data.camps) || [];
+    const campName = id => (id ? ((camps.find(x => x.id === id) || {}).name || 'Campaña') : 'Práctica libre');
+    return head + launched + card('', table([
+      ['Fecha', s => esc(when(s.started_at))], ['Entrenamiento', s => '<b style="font-weight:500">' + esc(campName(s.campaign_id)) + '</b><br><small class="muted">' + esc(cfgText(s.config)) + '</small>'],
+      ['Puntos', scoreCell], ['Resultado', s => resultTag(s) || '<span class="muted">—</span>'], ['Verificación', verifyTag],
+      ['', s => (s.status === 'started' ? '' : btn('Ver informe', { href: c.base + 'informe/' + s.id, size: 'sm' }))]
+    ], m.data.map(s => Object.assign({ _muted: s.status === 'started' }, s)), 'Aún no tienes sesiones. Empieza una desde «Entrenar».'), { flush: true });
+  },
+
+  informe: c => {
+    const d = need('sess:' + c.arg, () => q(sb.from('training_sessions').select('id, user_id, campaign_id, config, status, final, client_report, server_report, verify_notes, score, max_score, result, started_at, submitted_at, verified_at').eq('id', c.arg).maybeSingle()));
+    const back = btn('Volver al historial', { href: c.base + 'historial' });
+    if (loadState(d)) return pageHead('Informe de la sesión', '', back) + loadState(d);
+    const s = d.data;
+    if (!s) return pageHead('Informe de la sesión', '', back) + card('', empty('file', 'No encontramos esta sesión', 'Puede que no tengas acceso a ella.'));
+    const rep = s.server_report || s.client_report;
+    const head = pageHead('Informe de la sesión', esc(cfgText(s.config)) + ' · ' + esc(when(s.started_at)), back);
+    if (!rep) return head + card('', empty('clock', 'Aún no hay resultado', 'El resultado aparece al terminar el primer día en el simulador.'));
+    const note = {
+      verified: alertBox('success', 'Verificado por el servidor', 'El resultado se recalculó a partir de tus respuestas con el mismo motor del simulador.'),
+      submitted: alertBox('warning', 'Pendiente de verificar', 'Este resultado lo calculó tu navegador. El servidor lo comprobará repitiendo la sesión con tus respuestas.'),
+      mismatch: alertBox('danger', 'El resultado no coincide', 'El servidor repitió la sesión y obtuvo otro resultado. Se muestra el del servidor.'),
+      started: ''
+    }[s.status];
+    const k = rep.kpis || {};
+    const byQ = k.byQ || {};
+    const total = (byQ[3] || 0) + (byQ[2] || 0) + (byQ[1] || 0) + (byQ[0] || 0);
+    const kpi = (label, value, foot) => '<div class="card kpi"><div class="kpi-l">' + esc(label) + '</div><div class="kpi-v num">' + esc(value) + '</div><div class="kpi-f">' + (foot ? '<span>' + esc(foot) + '</span>' : '') + '</div></div>';
+    const barRow = (label, value, max, text, cls) => '<div class="bar" role="listitem"><span class="l">' + esc(label) + '</span><span class="t"><span class="f' + (cls ? ' ' + cls : '') + '" style="width:' + (max ? Math.round(100 * value / max) : 0) + '%"></span><span class="ref" style="left:60%"></span></span><span class="v">' + esc(text) + '</span></div>';
+    const list = items => (items && items.length ? '<ul class="list">' + items.map(x => '<li><span class="meta"><b>' + esc(x.title) + '</b><small>' + esc(x.detail) + '</small></span></li>').join('') + '</ul>' : '<p class="muted" style="font-size:13px;padding:12px 16px">Nada que destacar.</p>');
+    return head + '<div class="stack">' + note + '</div>' +
+      '<div class="section">' + '<div class="grid g4">' +
+        kpi('Puntos', rep.totalScore + ' / ' + rep.maxScore, resultTagText(rep.status)) + kpi('Calidad de respuestas', pctOf(k.acc), k.replies + ' respuestas') +
+        kpi('CSAT medio', k.avgCsat != null ? k.avgCsat.toFixed(1).replace('.', ',') : '—', 'sobre 5') + kpi('Códigos de cierre', pctOf(k.wrap), 'correctos') + '</div></div>' +
+      '<div class="grid g2 section">' +
+        card('Puntuación por día', '<div class="bars" role="list">' + (rep.perDay || []).map(x => barRow('Día ' + x.n, x.score, 100, String(x.score))).join('') + '</div><p class="legend"><span>│ Nota de aprobado: 60</span></p>') +
+        card('Valoración de las respuestas', '<div class="bars" role="list">' + [[3, 'Excelente'], [2, 'Buena'], [1, 'Mejorable'], [0, 'Mala']].map(x => barRow(x[1], byQ[x[0]] || 0, total, String(byQ[x[0]] || 0), x[0] === 3 ? 'accent' : '')).join('') + '</div>') + '</div>' +
+      '<div class="grid g2 section">' + card(ic('checkCircle', 16) + 'Fortalezas', list(rep.strengths), { flush: true }) + card(ic('alert', 16) + 'Áreas de mejora', list(rep.improve), { flush: true }) + '</div>' +
+      ((rep.errors || []).length ? '<div class="section">' + card('Respuestas para repasar', '<ul class="list">' + rep.errors.map(e => '<li><span class="meta"><b style="font-weight:500">«' + esc(e.chosen) + '»</b><small>' + esc(e.customer) + ' · Día ' + e.day + ' · ' + esc(e.fb) + (e.best ? ' — Mejor: «' + esc(e.best) + '»' : '') + '</small></span></li>').join('') + '</ul>', { flush: true }) + '</div>' : '') +
+      '<p class="muted" style="font-size:12px;margin-top:12px">Los textos de los casos y de las recomendaciones vienen del simulador, que hoy está en inglés.</p>';
+  }
+});
+const resultTagText = status => (RESULT[status] ? RESULT[status][0] : '');
+
+// Results the simulator leaves in this browser (same site): sent to the server, then removed
+const RESULT_KEY = 'shiftready.platform.result.';
+async function syncResults() {
+  if (!sb || !S.session || syncResults.busy) return;
+  syncResults.busy = true;
+  let saved = 0;
+  try {
+    const keys = [];
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(RESULT_KEY) === 0) keys.push(k); } } catch (e) { return; }
+    for (const k of keys) {
+      let r = null;
+      try { r = JSON.parse(store.get(k)); } catch (e) { r = null; }
+      if (!r || !r.sid) { store.del(k); continue; }
+      const sentKey = 'shiftready.platform.sent.' + r.sid;
+      if (store.get(sentKey) === String(r.at)) { if (r.final) { store.del(k); store.del(sentKey); } continue; }
+      try {
+        await q(sb.rpc('submit_session', { p_session: r.sid, p_log: r.days, p_report: r.report, p_final: !!r.final }));
+        saved++;
+        if (r.final) { store.del(k); store.del(sentKey); if (S.launched && S.launched.sid === r.sid) S.launched = null; } else store.set(sentKey, String(r.at));
+        if (r.final) sb.functions.invoke('verify-session', { body: { session_id: r.sid } }).then(() => { forget('mysess:'); forget('sess:'); render(); }, () => {});
+      } catch (e) {
+        if (/session_closed|invalid_result/.test(e.message || '')) { store.del(k); store.del(sentKey); }   // already verified or broken: nothing to send
+        // not_allowed: it belongs to another account signed in on this browser; it waits for that account
+      }
+    }
+  } finally { syncResults.busy = false; }
+  if (saved) { forget('mysess:'); forget('sess:'); toast('Resultado guardado en tu historial'); }
+}
+window.addEventListener('storage', e => { if (e.key && e.key.indexOf(RESULT_KEY) === 0) syncResults(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncResults(); });
+
 const ACTION = {
   'organizations.insert': 'Empresa creada', 'organizations.update': 'Empresa modificada', 'organizations.delete': 'Empresa eliminada',
   'memberships.insert': 'Se unió a la empresa', 'memberships.update': 'Cambio de rol o de estado', 'memberships.delete': 'Salió de la empresa',
@@ -652,6 +863,7 @@ async function afterSignIn() {
   await loadContext();
   S.note = null;
   route();
+  syncResults();
 }
 async function refresh(prefix) { forget(prefix); await loadContext(); render(); }
 
@@ -742,6 +954,41 @@ const FORMS = {
   dialog: async f => {
     await S.dialog.onSubmit(f);
     S.dialog = null;
+  },
+  'campaign-new': async (f, form) => {
+    const fd = new FormData(form);
+    const days = fd.getAll('day').map(Number);
+    if (!days.length) throw new Error('Elige al menos un día.');
+    const row = { org_id: form.dataset.arg, name: f.name.trim(), goal: (f.goal || '').trim(), days, difficulty: f.difficulty, customers: f.customers ? Number(f.customers) : null, reply: f.reply, starts_on: f.starts_on || null, ends_on: f.ends_on || null };
+    const camp = (await q(sb.from('campaigns').insert(row).select('id')))[0];
+    const teams = fd.getAll('team');
+    if (teams.length) await q(sb.from('campaign_teams').insert(teams.map(t => ({ campaign_id: camp.id, team_id: t, org_id: form.dataset.arg }))));
+    form.reset();
+    forget('camps:'); toast('Campaña creada');
+  },
+  'session-start': async (f, form) => {
+    // The tab is opened right away, while the click still counts as the person's (browsers block it later)
+    const win = window.open('about:blank', '_blank');
+    try {
+      const c = context(S.view);
+      const practice = form.dataset.arg === 'practica';
+      const st = S.setup;
+      const res = (await q(sb.rpc('start_session', { p_org: c.org, p_campaign: practice ? null : form.dataset.arg, p_days: st.days, p_difficulty: st.difficulty, p_customers: st.customers ? Number(st.customers) : null, p_reply: st.reply })))[0];
+      const camp = practice ? null : ((DATA['camps:' + c.org] && DATA['camps:' + c.org].data.camps) || []).find(x => x.id === form.dataset.arg);
+      const cfg = res.session_config;
+      const payload = { sid: res.new_session_id, seed: Number(res.session_seed), days: cfg.days, difficulty: cfg.difficulty, customers: cfg.customers, reply: cfg.reply,
+        agentName: (S.profile && S.profile.full_name) || '', title: practice ? 'Práctica libre' : (camp ? camp.name : 'Entrenamiento'), createdAt: res.session_started_at };
+      const url = new URL('../index.html', location.href);
+      url.search = '?launch=' + b64url(payload);
+      S.launched = { sid: payload.sid, url: url.href, title: payload.title, blocked: !win };
+      if (win) win.location.href = url.href;
+      S.setup = null;
+      forget('mysess:');
+      go(c.base + 'historial');
+    } catch (e) {
+      if (win) win.close();
+      throw e;
+    }
   }
 };
 
@@ -817,6 +1064,11 @@ const ACTS = {
       forget('orgs'); forget('audit');
     }
   }),
+  'campaign-status': async arg => {
+    const [id, status] = arg.split(':');
+    try { await q(sb.from('campaigns').update({ status }).eq('id', id)); forget('camps:'); toast(status === 'finished' ? 'Campaña finalizada' : 'Campaña reactivada'); } catch (e) { toast(msg(e)); }
+    render();
+  },
   'org-status': arg => {
     const [id, status] = arg.split(':');
     openDialog({
@@ -863,6 +1115,12 @@ document.addEventListener('change', async e => {
     catch (err) { toast(msg(err)); forget('people:'); }
     render();
   }
+  if (el.dataset.setup && S.setup) {                         // session setup: days, difficulty, customers, replies
+    const f = el.dataset.setup;
+    if (f === 'day') { const n = Number(el.value); S.setup.days = S.setup.days.filter(x => x !== n).concat(el.checked ? [n] : []).sort((a, b) => a - b); }
+    else S.setup[f] = f === 'customers' ? (el.value ? Number(el.value) : null) : el.value;
+    render();
+  }
 });
 
 document.addEventListener('keydown', e => {
@@ -902,5 +1160,6 @@ async function boot() {
   if (pending) need('invite:' + pending, async () => (await q(sb.rpc('get_invitation_preview', { p_token: pending })))[0] || null);
   S.ready = true;
   route();
+  syncResults();
 }
 boot();

@@ -46,7 +46,7 @@
     const baseRandom = opts.random || (() => Math.random());
     let random = baseRandom;       // a shift started with a seed uses its own sequence
 
-    const E = { st: null, hooks: {}, settings: {}, activeId: null, lastTs: 0 };
+    const E = { st: null, hooks: {}, settings: {}, activeId: null, lastTs: 0, fixedStep: 0, steps: 0, acc: 0 };
 
     function emit(name) {
       const h = E.hooks[name];
@@ -107,6 +107,8 @@
         arrivedAt: null, endedAt: null, closedAt: null, lastAt: 0
       }));
       E.activeId = null;
+      E.steps = 0;                 // fixed steps played in this shift (see E.tick)
+      E.acc = 0;
       // small lead-in so the agent sees an empty inbox for a moment
       st.convs.forEach(c => schedule(1200 + (c.sc.arrive - arriveFrom) * 1000 * st.pace.arrive, () => arrive(c)));
       E.lastTs = readClock();
@@ -143,6 +145,24 @@
       const st = E.st;
       if (!st || !st.running || st.paused) return;
       dt = Math.min(dt, 500);
+      // Fixed-step mode (shifts launched from the platform): the game clock moves in exact steps
+      // and E.steps counts them, so the server can replay the shift step by step and get the same result
+      if (E.fixedStep) {
+        E.acc = (E.acc || 0) + dt;
+        while (E.acc >= E.fixedStep && E.st === st && st.running && !st.paused) {
+          E.acc -= E.fixedStep;
+          E.steps++;
+          E.advance(E.fixedStep);
+        }
+        return;
+      }
+      E.advance(dt);
+    };
+
+    // Moves the game clock forward by dt ms: events due by then happen, then patience decays
+    E.advance = function (dt) {
+      const st = E.st;
+      if (!st || !st.running || st.paused) return;
       st.clock += dt;
       processQueue();
       if (E.st !== st) return;

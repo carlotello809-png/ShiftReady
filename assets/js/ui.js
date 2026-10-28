@@ -205,9 +205,87 @@
   document.body.appendChild(toastHost);
 
   /* =========================================================
+     PLATFORM LAUNCH — the ShiftReady platform (app/) opens the simulator for a session
+     The settings arrive in ?launch=… (days, difficulty, customers, replies, seed). Shifts then run
+     on fixed 100 ms steps and every reply and wrap-up is logged with its step, so the server can
+     replay the session and recompute the result (assets/js/replay.js). The result is left in
+     localStorage for the ShiftReady tab, which saves it. Without ?launch nothing here is active.
+     ========================================================= */
+  const PLATFORM_KEY = 'shiftready.platform.result.';
+  function readLaunch() {
+    try {
+      const raw = new URLSearchParams(location.search).get('launch');
+      if (!raw) return null;
+      const bin = atob(raw.replace(/-/g, '+').replace(/_/g, '/'));
+      const p = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+      const cfg = { days: p.days, difficulty: p.difficulty, customers: p.customers == null ? null : Number(p.customers), reply: p.reply || 'auto' };
+      const v = SS.validateConfig(cfg, { data: D });
+      if (!p.sid || !Number.isFinite(Number(p.seed)) || !v.ok) return null;
+      return {
+        sid: String(p.sid), seed: Number(p.seed), cfg: Object.assign(cfg, { days: v.days }), createdAt: p.createdAt || undefined,
+        agentName: String(p.agentName || '').trim().slice(0, 40), title: String(p.title || 'Assigned training').slice(0, 80),
+        days: [], current: null
+      };
+    } catch (e) { return null; }
+  }
+  ui.platform = readLaunch();
+  if (ui.platform) {
+    E.fixedStep = 100;
+    if (ui.platform.agentName) store.agentName = ui.platform.agentName;
+    const send = E.send;
+    const wrapUp = E.wrapUp;
+    E.send = function (id, i) {
+      const k = E.steps;
+      const ok = send(id, i);
+      if (ok && ui.platform && ui.platform.current) ui.platform.current.actions.push([k, 's', id, i]);
+      return ok;
+    };
+    E.wrapUp = function (id, code) {
+      const c = E.get(id);
+      const k = E.steps;
+      const was = c && c.status;
+      wrapUp(id, code);
+      if (ui.platform && ui.platform.current && was === 'ended' && c.status === 'closed') ui.platform.current.actions.push([k, 'w', id, code]);
+    };
+  }
+  const platformSession = () => SS.createSession(ui.platform.cfg, { data: D, isUnlocked: () => true }, { seed: ui.platform.seed, id: ui.platform.sid, now: ui.platform.createdAt });
+  // Leaves the result for the ShiftReady tab (it saves it to the history and the server checks it)
+  function savePlatformResult(endedEarly) {
+    const P = ui.platform;
+    const s = ui.session;
+    if (!P || !s || s.id !== P.sid) return;
+    const result = { v: 1, sid: P.sid, days: P.days, report: SS.buildReport(s, D), final: !!endedEarly || SS.nextDay(s) == null, at: Date.now() };
+    try { localStorage.setItem(PLATFORM_KEY + P.sid, JSON.stringify(result)); } catch (e) { /* storage unavailable */ }
+    toast({ title: 'Result sent to ShiftReady', body: 'Your ShiftReady tab saves it to your history.', icon: 'checkCircle', tone: 'good', ms: 4000 });
+  }
+  function leavePlatform() {
+    ui.platform = null;
+    ui.session = null;
+    E.fixedStep = 0;
+    try { window.history.replaceState(null, '', location.pathname); } catch (e) { /* ignore */ }
+  }
+  function renderPlatformIntro() {
+    const P = ui.platform;
+    ui.view = 'platform';
+    document.title = P.title + ' · ShiftReady';
+    const diff = SS.difficulty(P.cfg.difficulty);
+    const days = P.cfg.days.map(n => { const d = D.days.find(x => x.n === n); return 'Day ' + n + ' · ' + d.title; });
+    const row = (k, v) => '<div style="display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-3)">' + esc(k) + '</span><b style="text-align:right">' + v + '</b></div>';
+    app.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg)">' +
+      '<section style="width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);padding:28px;box-shadow:var(--sh-2)">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">' + brandMark(44) + '<div><div style="font-size:12px;color:var(--ink-3)">ShiftReady platform</div><h1 style="font-size:20px">' + esc(P.title) + '</h1></div></div>' +
+        row('Days', days.map(esc).join('<br>')) + row('Difficulty', esc(diff.label)) +
+        row('Customers per day', P.cfg.customers ? String(P.cfg.customers) : 'All') + row('Customer replies', esc(SS.replySpeed(P.cfg.reply).label)) +
+        '<p style="font-size:13px;color:var(--ink-2);margin:16px 0">Your replies and wrap-ups are recorded so the result can be verified. It goes to your ShiftReady history when you finish each day.</p>' +
+        '<button class="btn btn-primary btn-lg" style="width:100%" data-act="platform-start">' + icon('play', 16) + 'Start</button>' +
+      '</section></div>';
+  }
+
+  /* =========================================================
      LOBBY
      ========================================================= */
   function renderLobby() {
+    if (ui.platform) leavePlatform();     // back to normal play: nothing more is sent to the platform
     ui.view = 'lobby';
     clearToasts();
     ui.kb = false;
@@ -615,7 +693,9 @@
     emptyEl = null;
     closedHeadEl = null;
     // Every shift belongs to a session: its difficulty sets the pace, its seed the option order
+    if (ui.platform && (!ui.session || ui.session.id !== ui.platform.sid)) ui.session = platformSession();
     if (!ui.session || ui.session.days.indexOf(n) === -1) ui.session = newSession(Object.assign({ days: [n] }, shiftSettings()));
+    if (ui.platform) ui.platform.current = { n, attempt: ui.session.attempts[n] || 0, actions: [] };
     E.startDay(n, SS.startOptions(ui.session, n));
     renderWorkspace();
     updateRotate();
@@ -2159,8 +2239,9 @@
     rememberSession(sess);
     const prev = store.progress[d.n];
     const isBest = !practice && (!prev || rep.score > prev.best);
-    // Practice (Easy, fewer customers or slow replies) doesn't unlock days or change best scores
-    if (!practice) {
+    // Practice (Easy, fewer customers or slow replies) doesn't unlock days or change best scores.
+    // Platform sessions are recorded by the platform, not in this browser's progress.
+    if (!practice && !ui.platform) {
       store.progress[d.n] = {
         best: Math.max(rep.score, prev ? prev.best : 0),
         stars: Math.max(rep.stars, prev ? prev.stars : 0),
@@ -2173,6 +2254,12 @@
     closeKB();
     closeDoc();
     clearToasts();
+    if (ui.platform && ui.platform.current && sess.id === ui.platform.sid) {
+      ui.platform.current.steps = E.steps;
+      ui.platform.days.push(ui.platform.current);
+      ui.platform.current = null;
+      savePlatformResult(false);
+    }
     ui.view = 'report';
     endTour();
     updateRotate();
@@ -2479,8 +2566,10 @@
         startShift(n);
         break;
       }
+      case 'platform-start': ui.session = platformSession(); startShift(SS.nextDay(ui.session)); break;
       case 'session-report':
         if (SS.nextDay(ui.session) != null) ui.session.endedEarly = true;
+        if (ui.platform) savePlatformResult(true);
         rememberSession(ui.session);
         renderSessionReport(ui.session);
         break;
@@ -2737,5 +2826,6 @@
     }
   };
 
-  renderLobby();
+  if (ui.platform) renderPlatformIntro();
+  else renderLobby();
 })();

@@ -1,6 +1,6 @@
 # ShiftReady SaaS: propuesta de UX/UI y arquitectura de navegación
 
-> **Estado (27 oct 2026):** propuesta **aprobada**. Etapa 0 terminada: decisiones cerradas ([6.4](06-mvp-riesgos-y-plan.md#64-decisiones-tomadas-27-de-octubre-de-2026)) y valores visuales comunes en `assets/css/tokens.css`. Etapa 1: base de datos aplicada en `shiftready-dev` ([`supabase/`](../../supabase/README.md)). Etapa 2 en curso: app real de acceso en [`app/`](../../app/README.md).
+> **Estado (27 oct 2026):** propuesta **aprobada**. Etapa 0 terminada: decisiones cerradas ([6.4](06-mvp-riesgos-y-plan.md#64-decisiones-tomadas-27-de-octubre-de-2026)) y valores visuales comunes en `assets/css/tokens.css`. Etapa 1: base de datos aplicada en `shiftready-dev` ([`supabase/`](../../supabase/README.md)). Etapa 2: app real de acceso en [`app/`](../../app/README.md). Etapa 3 hecha: sesiones del simulador guardadas en el historial y verificadas por el servidor.
 > Todavía no hay pantallas conectadas, autenticación en uso, pagos ni IA. El simulador actual (`index.html`) no se ha tocado y sigue funcionando igual.
 
 Esta carpeta describe cómo pasar del simulador de un solo usuario a una plataforma para empresas con cuatro roles: superadministrador, administrador de empresa, supervisor/coach y agente. Junto a los documentos hay un **prototipo navegable** con datos demostrativos.
