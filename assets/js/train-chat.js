@@ -11,6 +11,21 @@
   const TEXT_TYPES = /\.(txt|md|csv)$/i;
   const ACCEPT = '.txt,.md,.csv,.pdf,.doc,.docx';
   const KINDS = { prompt: 'Prompt / instrucciones', manual: 'Manual o política' };
+  // Server function that asks Claude for the cases (public project URL and publishable key)
+  const GEN_URL = 'https://euusjtfndzlvxrpimwkq.supabase.co/functions/v1/generate-training';
+  const PUB_KEY = 'sb_publishable_wNS5phtxj2B0PaEh38MzSw_bzKRf3oo';
+  const MAX_PDF = 4 * 1024 * 1024;
+  const GEN_ERR = {
+    rate_limited: 'Llegaste al límite de generaciones por hora. Prueba de nuevo más tarde.',
+    daily_limit: 'Se alcanzó el límite diario de generaciones del sitio. Prueba mañana.',
+    ai_not_configured: 'La IA todavía no está configurada en el servidor (falta la clave de Anthropic).',
+    ai_busy: 'La IA está ocupada. Prueba en un momento.',
+    refused: 'La IA no pudo crear casos con ese contenido. Prueba a reformular la petición.',
+    invalid_cases: 'La IA generó casos con errores que el simulador no puede jugar. Prueba otra vez.',
+    too_much_text: 'Los documentos son demasiado largos. Sube menos texto.',
+    too_long: 'La respuesta fue demasiado larga. Pide menos clientes por día.'
+  };
+  const TRAINING_KEY = 'shiftready.trainchat.training';
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ic = (n, s) => (SR.icon ? SR.icon(n, s || 16) : '');
@@ -103,7 +118,54 @@
       '<div class="tc-day-t">Basado en el día real ' + d.real + ' · ' + esc(d.title) + ' (' + d.total + ' clientes)</div>' +
       '<ul>' + d.cases.map(c => '<li>' + (c.hit ? '★ ' : '') + esc(c.topic) + ' <span>· ' + esc(c.who) + '</span></li>').join('') + '</ul>' +
       '<button type="button" class="tc-mini" data-tc="practice" data-day="' + d.real + '">' + ic('play', 13) + 'Practicar este día</button></div>').join('') +
-      '<p class="tc-note">Usa los casos reales del simulador. Crear casos nuevos a partir de tus documentos necesitará conectar una IA (fase futura).</p></div>';
+      '<p class="tc-note">Propuesta con los casos reales del simulador. Para crear casos nuevos con tu prompt y tus documentos, usa la IA:</p>' +
+      '<button type="button" class="tc-send tc-gen" data-tc="generate"' + (busy ? ' disabled' : '') + '>' + ic('sparkle', 14) + 'Generar con IA (' + p.plan.length + ' día' + (p.plan.length === 1 ? '' : 's') + ')</button></div>';
+  }
+
+  /* ---------- real generation with Claude (server function) ---------- */
+  let lastRequest = '';
+  async function generate(p) {
+    if (busy) return;
+    const n = Math.min(p.plan.length, 5);
+    const docs = files.filter(f => f.text).map(f => ({ name: f.name, text: f.text }));
+    const pdfs = files.filter(f => f.pdf).map(f => ({ name: f.name, data: f.pdf }));
+    const skipped = files.filter(f => !f.text && !f.pdf).map(f => f.name);
+    const prompt = lastRequest || S.msgs.filter(m => m.from === 'me').map(m => m.text).join('\n');
+    const training = { title: 'Entrenamiento generado', difficulty: p.diff, days: [], cases: [] };
+    busy = true;
+    if (skipped.length) S.msgs.push({ from: 'bot', text: 'No puedo leer estos archivos (usa .txt, .md, .csv o .pdf hasta 4 MB): ' + skipped.join(', ') });
+    for (let i = 0; i < n; i++) {
+      const d = p.plan[i], dayN = 100 + i + 1;
+      S.msgs.push({ from: 'bot', text: 'Generando el día ' + (i + 1) + ' de ' + n + ' con Claude… (puede tardar hasta 2 minutos)' });
+      save(); render();
+      try {
+        const res = await fetch(GEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: PUB_KEY, Authorization: 'Bearer ' + PUB_KEY },
+          body: JSON.stringify({ prompt, docs, pdfs, day: dayN, count: 2,
+            plan: 'Día ' + (i + 1) + ' de ' + n + '. Nivel ' + (LEVEL_ES[d.level] || d.level) + (d.exam ? '. Evaluación final integral' : '') + (p.pol.length ? '. Temas: ' + p.pol.join(', ') : '') })
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || !Array.isArray(out.cases)) throw new Error(GEN_ERR[out.error] || 'No se pudo generar el día ' + (i + 1) + ' (error ' + res.status + ').');
+        training.cases = training.cases.concat(out.cases);
+        training.days.push({ n: dayN, title: 'Día ' + (i + 1) + (d.exam ? ' · Evaluación' : ''), level: d.level, focus: out.cases.map(c => c.topic).slice(0, 4) });
+      } catch (e) {
+        S.msgs.push({ from: 'bot', text: e.message && e.message.indexOf('Failed to fetch') === -1 ? e.message : 'No hay conexión con el servidor de IA.' });
+        break;
+      }
+    }
+    busy = false;
+    if (training.cases.length) {
+      try { localStorage.setItem(TRAINING_KEY, JSON.stringify(training)); } catch (e) { /* too big or blocked: stays in memory */ }
+      SR._lastTraining = training;
+      S.msgs.push({ from: 'bot', text: 'Listo: ' + training.days.length + ' día' + (training.days.length === 1 ? '' : 's') + ' y ' + training.cases.length + ' clientes creados por la IA y revisados por el validador del simulador.', ready: true });
+    }
+    save(); render();
+  }
+  function playLast() {
+    let t = SR._lastTraining;
+    if (!t) { try { t = JSON.parse(localStorage.getItem(TRAINING_KEY)); } catch (e) { t = null; } }
+    if (!t || !SR.playTraining || !SR.playTraining(t)) { S.msgs.push({ from: 'bot', text: 'No encuentro el entrenamiento generado. Genéralo de nuevo.' }); save(); render(); }
   }
 
   function render() {
@@ -116,7 +178,8 @@
       '<div class="tc-body">' +
         '<div class="tc-msgs" id="tcMsgs" aria-live="polite">' + S.msgs.map((m, i) =>
           '<div class="tc-msg ' + m.from + '"><div class="tc-bub">' + esc(m.text) + (m.files ? '<div class="tc-att">' + m.files.map(f => ic('paperclip', 12) + esc(f)).join('<br>') + '</div>' : '') + '</div>' +
-          (m.plan ? planHTML(m.plan) : '') + (m.from === 'me' ? '<button type="button" class="tc-del" data-tc="del" data-i="' + i + '" aria-label="Borrar mensaje">' + ic('x', 12) + '</button>' : '') + '</div>').join('') +
+          (m.plan ? planHTML(m.plan) : '') +
+          (m.ready ? '<button type="button" class="tc-send tc-gen" data-tc="play">' + ic('play', 14) + 'Jugar este entrenamiento</button>' : '') + (m.from === 'me' ? '<button type="button" class="tc-del" data-tc="del" data-i="' + i + '" aria-label="Borrar mensaje">' + ic('x', 12) + '</button>' : '') + '</div>').join('') +
           (busy ? '<div class="tc-msg bot"><div class="tc-bub tc-typing">Analizando (demo)…</div></div>' : '') + '</div>' +
         '<div class="tc-files">' + (files.length ? files.map(f =>
           '<span class="tc-file" title="' + esc(f.name) + '">' + ic('file', 12) + '<span class="n">' + esc(f.name) + '</span><span class="m">' + esc(KINDS[f.kind]) + ' · ' + size(f.size) + '</span>' +
@@ -147,6 +210,10 @@
         const r = new FileReader();
         r.onload = () => { item.text = String(r.result || ''); };
         r.readAsText(f.slice(0, READ_BYTES));
+      } else if (/\.pdf$/i.test(f.name) && f.size <= MAX_PDF) {
+        const r = new FileReader();        // PDFs go to Claude as documents (base64)
+        r.onload = () => { item.pdf = String(r.result || '').split(',')[1] || ''; };
+        r.readAsDataURL(f);
       }
     });
     if (errs.length) S.msgs.push({ from: 'bot', text: errs.join(' ') });
@@ -157,6 +224,7 @@
     text = text.trim();
     if (!text && !files.length) return;
     S.msgs.push({ from: 'me', text: text || '(Archivos adjuntos)', files: files.map(f => f.name) });
+    if (text) lastRequest = (lastRequest ? lastRequest + '\n' : '') + text;
     S.draft = '';
     busy = true; render(); save();
     setTimeout(() => { busy = false; S.msgs.push(reply(text)); save(); render(); }, 900);
@@ -170,6 +238,8 @@
     if (a === 'new') { S = fresh(); files = []; save(); render(); }
     if (a === 'rm') { files = files.filter(f => f.id !== b.dataset.id); render(); }
     if (a === 'del') { S.msgs.splice(Number(b.dataset.i), 1); save(); render(); }
+    if (a === 'generate') { const m = S.msgs.slice().reverse().find(x => x.plan); if (m) generate(m.plan); }
+    if (a === 'play') playLast();
     if (a === 'practice') {
       const card = document.querySelector('.day-card[data-day="' + b.dataset.day + '"]');
       if (!card) return;

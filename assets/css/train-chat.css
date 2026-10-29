@@ -60,3 +60,5 @@
   .tc.closed .tc-head h2 { display: flex; }
   .tc-msgs { max-height: 40vh; }
 }
+
+.tc-gen { margin-top: 6px; width: 100%; justify-content: center; }
