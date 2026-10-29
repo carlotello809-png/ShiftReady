@@ -25,7 +25,8 @@ test('set-up: two companies, two teams, a coach and two agents', async () => {
 test('only admins with two-step verification create and assign campaigns; days are normalised', async () => {
   const sql = 'insert into public.campaigns (org_id, name, days, difficulty) values ($1, $2, $3, $4) returning id, days, seed';
   await assert.rejects(as('laura', sql, [O.bahia, 'Sin 2 pasos', [1], 'medium'], 'aal1'), /row-level security/);
-  await assert.rejects(as('diego', sql, [O.bahia, 'Del coach', [1], 'medium']), /row-level security/);
+  // Since 20261028180000_campanas_coach.sql a coach may create campaigns (their own); see campanas-coach.test.mjs
+  await assert.rejects(as('diego', 'insert into public.campaigns (org_id, name, days, difficulty, created_by) values ($1, $2, $3, $4, $5)', [O.bahia, 'A nombre de otra', [1], 'medium', U.laura]), /row-level security|permission denied/);
   await assert.rejects(as('ana', sql, [O.bahia, 'De la agente', [1], 'medium']), /row-level security/);
   await assert.rejects(as('laura', 'insert into public.campaigns (org_id, name, days, difficulty, seed) values ($1, $2, $3, $4, 1)', [O.bahia, 'Semilla', [1], 'medium']), /permission denied/);
   const c = (await rows('laura', sql, [O.bahia, 'Onboarding', [2, 1, 2], 'medium']))[0];

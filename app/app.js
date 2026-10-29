@@ -419,7 +419,7 @@ const NAV = {
     ['Formación', [['campanas', 'Campañas', 'flag'], ['escenarios', 'Escenarios', 'chat', 5, 'admin/scenarios']]], ['Resultados', [['informes', 'Informes', 'trending', 5, 'admin/reports']]],
     ['Mi formación', [['entrenamientos', 'Entrenar', 'play'], ['historial', 'Mi historial', 'clock']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
   coach: [['General', [['inicio', 'Inicio', 'home']]], ['Equipo', [['participantes', 'Participantes', 'users']]],
-    ['Formación', [['campanas', 'Campañas', 'flag', 4, 'coach/campaigns'], ['revision', 'Revisión de conversaciones', 'chat', 4, 'coach/review']]],
+    ['Formación', [['campanas', 'Campañas', 'flag'], ['revision', 'Revisión de conversaciones', 'chat', 4, 'coach/review']]],
     ['Mi formación', [['entrenamientos', 'Entrenar', 'play'], ['historial', 'Mi historial', 'clock']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
   agent: [['General', [['inicio', 'Inicio', 'home']]], ['Entrenar', [['entrenamientos', 'Mis entrenamientos', 'flag']]], ['Resultados', [['historial', 'Historial', 'clock']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]],
   platform: [['Plataforma', [['empresas', 'Empresas', 'building']]], ['Gobierno', [['auditoria', 'Actividad y auditoría', 'list']]], ['Cuenta', [['perfil', 'Perfil y seguridad', 'user']]]]
@@ -650,12 +650,13 @@ const verifyTag = s => tag(VERIFY[s.status][0], VERIFY[s.status][1]);
 const datesText = c => (c.starts_on || c.ends_on ? (c.starts_on ? day(c.starts_on) : '…') + ' → ' + (c.ends_on ? day(c.ends_on) : '…') : 'Sin fechas');
 
 const campaignsOf = org => need('camps:' + org, async () => {
-  const [camps, ct, o] = await Promise.all([
-    q(sb.from('campaigns').select('id, name, goal, days, difficulty, customers, reply, status, starts_on, ends_on, created_at').eq('org_id', org).order('created_at', { ascending: false })),
+  const [camps, ct, cp, o] = await Promise.all([
+    q(sb.from('campaigns').select('id, name, goal, days, difficulty, customers, reply, status, starts_on, ends_on, created_at, created_by, instructions, sources').eq('org_id', org).order('created_at', { ascending: false })),
     q(sb.from('campaign_teams').select('campaign_id, team_id').eq('org_id', org)),
+    q(sb.from('campaign_people').select('campaign_id, user_id').eq('org_id', org)),
     q(sb.from('organizations').select('practice_enabled').eq('id', org).maybeSingle())
   ]);
-  return { camps: camps.map(c => Object.assign({ teams: ct.filter(x => x.campaign_id === c.id).map(x => x.team_id) }, c)), practice: !!(o && o.practice_enabled) };
+  return { camps: camps.map(c => Object.assign({ teams: ct.filter(x => x.campaign_id === c.id).map(x => x.team_id), people: cp.filter(x => x.campaign_id === c.id).map(x => x.user_id) }, c)), practice: !!(o && o.practice_enabled) };
 });
 const mySessions = org => need('mysess:' + org, () => q(sb.from('training_sessions')
   .select('id, campaign_id, config, status, final, score, max_score, result, started_at, submitted_at, verified_at')
@@ -669,30 +670,60 @@ function setupState(key, camp) {
   return S.setup;
 }
 
+/* ---------- Campaign assistant: chat + prompt + files → proposal that fills the form ----------
+   No AI is connected yet: it uses the simulator's own rules (assets/js/train-chat.js) to pick the
+   real training days that fit the request. Files stay in this page's memory; only their names are saved. */
+const ASSIST_HELLO = 'Describe el entrenamiento que necesitas (por ejemplo: «3 días para agentes nuevos con devoluciones y clientes molestos») y adjunta tu prompt o los manuales.';
+const assist = () => S.assist || (S.assist = { msgs: [{ from: 'bot', text: ASSIST_HELLO }], files: [] });
+function assistantCard() {
+  const A = assist();
+  return card(ic('sparkle', 16) + 'Asistente de entrenamiento', '<div class="as-msgs" id="asMsgs">' + A.msgs.map((m, i) =>
+      '<div class="as-msg ' + m.from + '"><div class="as-bub">' + esc(m.text) + '</div>' +
+      (m.plan ? '<ul class="as-plan">' + m.plan.plan.map(d => '<li><b>Día ' + d.i + '</b> → día real ' + d.real + ' · ' + esc(d.title) + ' (' + d.total + ' clientes)</li>').join('') + '</ul>' + btn('Usar esta propuesta', { act: 'assist-use', arg: i, size: 'sm', kind: 'primary' }) : '') + '</div>').join('') + '</div>' +
+    (A.files.length ? '<div class="as-files">' + A.files.map((f, i) => '<span class="tag">' + ic('file', 11) + ' ' + esc(f.name) + ' <button type="button" class="as-x" data-act="assist-rm" data-arg="' + i + '" aria-label="Quitar ' + esc(f.name) + '">×</button></span>').join('') + '</div>' : '') +
+    '<form class="stack" data-form="assist" style="margin-top:10px"><label class="sr-only" for="asIn">Describe el entrenamiento</label><textarea id="asIn" name="text" class="textarea" rows="3" maxlength="4000" placeholder="Describe el entrenamiento o pega tu prompt…"></textarea>' +
+    '<div class="row"><label class="btn btn-sm">' + ic('paperclip', 13) + 'Prompt o manuales<input type="file" data-assist-file="1" accept=".txt,.md,.csv,.pdf,.doc,.docx" multiple hidden></label><span class="spacer"></span>' + submit('Enviar', 'assist', { size: 'sm' }) + '</div></form>',
+    { actions: tag('Sin IA conectada · usa los casos reales', ''), foot: '<small class="muted">Cuando se conecte Claude, este mismo asistente generará casos nuevos con tus documentos.</small>' });
+}
+
 Object.assign(PAGES, {
   campanas: c => {
-    const d = campaignsOf(c.org), t = teamsOf(c.org);
-    const head = pageHead('Campañas', 'Qué días entrenan tus equipos, con qué dificultad y hasta cuándo. El asistente completo llega en la etapa 5.');
-    if (loadState(d) || loadState(t)) return head + (loadState(d) || loadState(t));
-    const teams = t.data;
-    const teamName = id => (teams.find(x => x.id === id) || {}).name || '—';
-    const form = card('Nueva campaña', '<form class="stack" data-form="campaign-new" data-arg="' + c.org + '">' + formErr('campaign-new') +
-      '<div class="form-grid"><div class="field"><label for="cn">Nombre</label><input id="cn" name="name" class="input" maxlength="120" required></div>' +
-      '<div class="field"><label for="cg">Objetivo (opcional)</label><input id="cg" name="goal" class="input" maxlength="500"></div></div>' +
-      '<div class="field"><span class="lbl">Días</span><div class="row" style="flex-wrap:wrap">' + SRD.days.map(x => '<label class="check"><input type="checkbox" name="day" value="' + x.n + '"' + (x.n === 1 ? ' checked' : '') + '> ' + esc(dayTitle(x.n)) + '</label>').join('') + '</div></div>' +
-      '<div class="form-grid"><div class="field"><label for="cd">Dificultad</label><select id="cd" name="difficulty" class="select">' + Object.keys(DIFF_ES).map(k => '<option value="' + k + '"' + (k === 'medium' ? ' selected' : '') + '>' + DIFF_ES[k] + '</option>').join('') + '</select></div>' +
+    const d = campaignsOf(c.org), t = teamsOf(c.org), p = peopleOf(c.org);
+    const isCoach = c.role === 'coach', me = S.session.user.id;
+    const head = pageHead('Campañas', isCoach ? 'Crea entrenamientos para tu equipo con el asistente y asígnalos a todo el equipo o a agentes concretos.' : 'Qué entrenan tus equipos, con qué dificultad y hasta cuándo. Asigna a equipos completos o a agentes concretos.');
+    if (loadState(d) || loadState(t) || loadState(p)) return head + (loadState(d) || loadState(t) || loadState(p));
+    const allTeams = t.data;
+    // A coach only sees and assigns the teams they coach (the database checks it again)
+    const teams = isCoach ? allTeams.filter(x => x.members.some(m => m.user_id === me && m.team_role === 'coach')) : allTeams;
+    const inTeams = uid => teams.some(x => x.members.some(m => m.user_id === uid));
+    const agents = p.data.filter(m => m.status === 'active' && m.role === 'agent' && (!isCoach || inTeams(m.user_id)));
+    const teamName = id => (allTeams.find(x => x.id === id) || {}).name || '—';
+    const personName = id => { const m = p.data.find(x => x.user_id === id); return m ? (m.p.full_name || m.p.email) : 'Agente'; };
+    const dr = S.campDraft || {};
+    const dayOn = n => (dr.days ? dr.days.indexOf(n) !== -1 : n === 1);
+    if (isCoach && !teams.length) return head + card('', empty('users', 'Aún no coacheas ningún equipo', 'Un administrador debe asignarte como coach de un equipo para que puedas crear campañas.'));
+    const form = card('Nueva campaña', '<form class="stack" data-form="campaign-new" data-arg="' + c.org + '" id="campForm">' + formErr('campaign-new') +
+      (S.campDraft ? alertBox('info', 'Propuesta del asistente aplicada', 'Revisa los días y la dificultad, elige a quién asignarla y crea la campaña.') : '') +
+      '<div class="form-grid"><div class="field"><label for="cn">Nombre</label><input id="cn" name="name" class="input" maxlength="120" value="' + esc(dr.name || '') + '" required></div>' +
+      '<div class="field"><label for="cg">Objetivo (opcional)</label><input id="cg" name="goal" class="input" maxlength="500" value="' + esc(dr.goal || '') + '"></div></div>' +
+      '<div class="field"><label for="ci">Instrucciones / prompt (opcional)</label><textarea id="ci" name="instructions" class="textarea" maxlength="20000" rows="3">' + esc(dr.instructions || '') + '</textarea></div>' +
+      '<div class="field"><span class="lbl">Días</span><div class="row" style="flex-wrap:wrap">' + SRD.days.map(x => '<label class="check"><input type="checkbox" name="day" value="' + x.n + '"' + (dayOn(x.n) ? ' checked' : '') + '> ' + esc(dayTitle(x.n)) + '</label>').join('') + '</div></div>' +
+      '<div class="form-grid"><div class="field"><label for="cd">Dificultad</label><select id="cd" name="difficulty" class="select">' + Object.keys(DIFF_ES).map(k => '<option value="' + k + '"' + (k === (dr.difficulty || 'medium') ? ' selected' : '') + '>' + DIFF_ES[k] + '</option>').join('') + '</select></div>' +
       '<div class="field"><label for="cc">Clientes por día</label><select id="cc" name="customers" class="select"><option value="">Todos los del día</option>' + [1, 2, 3, 4].map(n => '<option value="' + n + '">' + n + '</option>').join('') + '</select></div>' +
       '<div class="field"><label for="cr">Velocidad de respuesta</label><select id="cr" name="reply" class="select">' + Object.keys(REPLY_ES).map(k => '<option value="' + k + '">' + REPLY_ES[k] + '</option>').join('') + '</select></div>' +
       '<div class="field"><label for="cs">Empieza (opcional)</label><input id="cs" name="starts_on" type="date" class="input"></div><div class="field"><label for="ce2">Termina (opcional)</label><input id="ce2" name="ends_on" type="date" class="input"></div></div>' +
-      '<div class="field"><span class="lbl">Equipos asignados</span>' + (teams.length ? '<div class="row" style="flex-wrap:wrap">' + teams.map(x => '<label class="check"><input type="checkbox" name="team" value="' + x.id + '"> ' + esc(x.name) + '</label>').join('') + '</div>' : '<p class="muted" style="font-size:13px">Crea antes un equipo en <a href="' + c.base + 'equipos">Equipos</a>.</p>') + '</div>' +
+      '<div class="field"><span class="lbl">Asignar a equipos completos</span>' + (teams.length ? '<div class="row" style="flex-wrap:wrap">' + teams.map(x => '<label class="check"><input type="checkbox" name="team" value="' + x.id + '"> ' + esc(x.name) + '</label>').join('') + '</div>' : '<p class="muted" style="font-size:13px">Crea antes un equipo en <a href="' + c.base + 'equipos">Equipos</a>.</p>') + '</div>' +
+      '<div class="field"><span class="lbl">…o a agentes concretos</span>' + (agents.length ? '<div class="row" style="flex-wrap:wrap">' + agents.map(m => '<label class="check"><input type="checkbox" name="person" value="' + m.user_id + '"> ' + esc(m.p.full_name || m.p.email) + '</label>').join('') + '</div>' : '<p class="muted" style="font-size:13px">' + (isCoach ? 'Tus equipos aún no tienen agentes.' : 'Aún no hay agentes en la empresa.') + '</p>') + '</div>' +
       '<p class="muted" style="font-size:12px">Todas las personas de la campaña ven los mismos clientes en el mismo orden. Fácil o menos clientes cuentan para completarla, pero no cambian los mejores resultados.</p>' +
       '<div>' + submit('Crear campaña', 'campaign-new') + '</div></form>');
-    return head + form + '<div class="section">' + card('Campañas de la empresa', table([
-      ['Campaña', x => '<b>' + esc(x.name) + '</b>' + (x.goal ? '<br><small class="muted">' + esc(x.goal) + '</small>' : '')],
+    const list = isCoach ? d.data.camps.filter(x => x.created_by === me || x.teams.some(id => teams.some(tm => tm.id === id))) : d.data.camps;
+    return head + '<div class="grid g-2-1">' + assistantCard() + form + '</div><div class="section">' + card(isCoach ? 'Campañas de tus equipos' : 'Campañas de la empresa', table([
+      ['Campaña', x => '<b>' + esc(x.name) + '</b>' + (x.goal ? '<br><small class="muted">' + esc(x.goal) + '</small>' : '') + ((x.sources || []).length ? '<br><small class="muted">' + ic('paperclip', 11) + ' ' + esc(x.sources.join(', ')) + '</small>' : '')],
       ['Estado', x => tag({ active: 'Activa', draft: 'Borrador', finished: 'Finalizada' }[x.status], { active: 'success', draft: '', finished: 'info' }[x.status])],
-      ['Contenido', x => esc(cfgText(x))], ['Equipos', x => esc(x.teams.map(teamName).join(', ') || '—')], ['Fechas', x => esc(datesText(x))],
-      ['', x => btn(x.status === 'active' ? 'Finalizar' : 'Reactivar', { act: 'campaign-status', arg: x.id + ':' + (x.status === 'active' ? 'finished' : 'active'), size: 'sm', kind: 'ghost' })]
-    ], d.data.camps, 'Aún no hay campañas'), { flush: true }) + '</div>';
+      ['Contenido', x => esc(cfgText(x))],
+      ['Asignada a', x => esc([].concat(x.teams.map(teamName), x.people.map(personName)).join(', ') || '—')], ['Fechas', x => esc(datesText(x))],
+      ['', x => ((!isCoach || x.created_by === me) ? btn(x.status === 'active' ? 'Finalizar' : 'Reactivar', { act: 'campaign-status', arg: x.id + ':' + (x.status === 'active' ? 'finished' : 'active'), size: 'sm', kind: 'ghost' }) : '')]
+    ], list, 'Aún no hay campañas'), { flush: true }) + '</div>';
   },
 
   entrenamientos: c => {
@@ -955,14 +986,32 @@ const FORMS = {
     await S.dialog.onSubmit(f);
     S.dialog = null;
   },
+  assist: async (f, form) => {
+    const A = assist();
+    const text = (f.text || '').trim();
+    if (!text && !A.files.length) return;
+    A.msgs.push({ from: 'me', text: text || '(Archivos adjuntos)' });
+    A.prompt = (A.prompt ? A.prompt + '\n' : '') + text;
+    const TC = SR.trainChat;
+    if (!TC) { A.msgs.push({ from: 'bot', text: 'El asistente no está disponible en esta página.' }); return; }
+    const a = TC._analyse(A.prompt + '\n' + A.files.map(x => x.text || '').join('\n'));
+    const p = TC._propose(a);
+    const pol = p.pol.map(k => (SRD.policies && SRD.policies[k] ? SRD.policies[k].title : k));
+    A.msgs.push({ from: 'bot', text: 'Propuesta: ' + p.n + ' día' + (p.n === 1 ? '' : 's') + ', dificultad ' + DIFF_ES[p.diff].toLowerCase() + '.' + (pol.length ? ' Temas: ' + pol.join(', ') + '.' : '') + (a.days ? '' : ' No indicaste días: propongo 5.') + ' Usa los días reales del simulador que mejor encajan.', plan: p });
+    form.reset();
+  },
   'campaign-new': async (f, form) => {
     const fd = new FormData(form);
     const days = fd.getAll('day').map(Number);
     if (!days.length) throw new Error('Elige al menos un día.');
-    const row = { org_id: form.dataset.arg, name: f.name.trim(), goal: (f.goal || '').trim(), days, difficulty: f.difficulty, customers: f.customers ? Number(f.customers) : null, reply: f.reply, starts_on: f.starts_on || null, ends_on: f.ends_on || null };
+    const teams = fd.getAll('team'), people = fd.getAll('person');
+    if (!teams.length && !people.length) throw new Error('Asígnala al menos a un equipo o a un agente.');
+    const row = { org_id: form.dataset.arg, name: f.name.trim(), goal: (f.goal || '').trim(), days, difficulty: f.difficulty, customers: f.customers ? Number(f.customers) : null, reply: f.reply, starts_on: f.starts_on || null, ends_on: f.ends_on || null,
+      instructions: (f.instructions || '').trim(), sources: (S.assist ? S.assist.files : []).map(x => x.name) };
     const camp = (await q(sb.from('campaigns').insert(row).select('id')))[0];
-    const teams = fd.getAll('team');
     if (teams.length) await q(sb.from('campaign_teams').insert(teams.map(t => ({ campaign_id: camp.id, team_id: t, org_id: form.dataset.arg }))));
+    if (people.length) await q(sb.from('campaign_people').insert(people.map(u => ({ campaign_id: camp.id, user_id: u, org_id: form.dataset.arg }))));
+    S.campDraft = null; S.assist = null;
     form.reset();
     forget('camps:'); toast('Campaña creada');
   },
@@ -993,6 +1042,16 @@ const FORMS = {
 };
 
 const ACTS = {
+  'assist-rm': arg => { assist().files.splice(Number(arg), 1); render(); },
+  'assist-use': arg => {
+    const A = assist(), m = A.msgs[Number(arg)];
+    if (!m || !m.plan) return;
+    const days = [...new Set(m.plan.plan.map(d => d.real))].sort((a, b) => a - b);
+    const first = (A.prompt || '').split('\n').find(Boolean) || 'Entrenamiento';
+    S.campDraft = { name: first.slice(0, 60), goal: first.slice(0, 200), instructions: A.prompt || '', days, difficulty: m.plan.diff };
+    render();
+    const f = document.getElementById('campForm'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
   theme: () => {
     S.theme = S.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', S.theme);
@@ -1110,6 +1169,18 @@ document.addEventListener('submit', async e => {
 
 document.addEventListener('change', async e => {
   const el = e.target;
+  if (el.dataset.assistFile) {               // assistant files: kept in memory; text files are read here, never uploaded
+    const A = assist();
+    Array.from(el.files || []).slice(0, 10 - A.files.length).forEach(file => {
+      if (!/\.(txt|md|csv|pdf|docx?)$/i.test(file.name) || file.size > 10 * 1024 * 1024) { A.msgs.push({ from: 'bot', text: file.name + ': tipo o tamaño no admitido (máx. 10 MB).' }); return; }
+      const item = { name: file.name.slice(0, 120), text: '' };
+      A.files.push(item);
+      if (/\.(txt|md|csv)$/i.test(file.name)) { const r = new FileReader(); r.onload = () => { item.text = String(r.result || ''); }; r.readAsText(file.slice(0, 300 * 1024)); }
+    });
+    el.value = '';
+    render();
+    return;
+  }
   if (el.dataset.change === 'role') {
     try { await q(sb.rpc('set_member_role', { p_membership: el.dataset.arg, p_role: el.value })); forget('people:'); forget('teams:'); toast('Rol cambiado'); }
     catch (err) { toast(msg(err)); forget('people:'); }

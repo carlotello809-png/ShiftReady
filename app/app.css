@@ -28,3 +28,13 @@
   .env-bar { position: relative; }
   .topbar { top: 0; }
 }
+
+/* Campaign assistant (chat + files) */
+.as-msgs { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; }
+.as-msg { display: flex; flex-direction: column; gap: 6px; }
+.as-msg.me { align-items: flex-end; }
+.as-bub { max-width: 92%; padding: 8px 11px; font-size: 13px; line-height: 1.45; background: var(--surface-2); border: 1px solid var(--border); white-space: pre-wrap; word-break: break-word; }
+.as-msg.me .as-bub { background: var(--primary); color: #fff; border-color: var(--primary); }
+.as-plan { margin: 0; padding-left: 16px; font-size: 12px; color: var(--text-2); list-style: disc; }
+.as-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.as-x { margin-left: 4px; background: none; border: 0; cursor: pointer; color: inherit; font-size: 14px; line-height: 1; }
