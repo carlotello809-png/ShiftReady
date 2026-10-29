@@ -243,7 +243,7 @@ window.addEventListener('hashchange', route);
    ================================================================ */
 function envBar() {
   return '<div class="env-bar" role="note"><b>' + esc(ENV_LABEL) + '</b><span>Datos de prueba</span><span class="sp"></span>' +
-    '<a href="../index.html" target="_blank" rel="noopener">Simulador ↗</a>' +
+    '<a href="../">← Volver a la portada</a>' +
     '<button type="button" data-act="theme" aria-label="Cambiar a modo ' + (S.theme === 'dark' ? 'claro' : 'oscuro') + '">' + ic(S.theme === 'dark' ? 'sun' : 'moon', 14) + '</button></div>';
 }
 function render() {

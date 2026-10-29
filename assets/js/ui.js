@@ -331,6 +331,9 @@
             howStep(2, 'Choose the best reply', 'Tap or click an answer and send it (on a keyboard: 1–4, then Enter). Some replies sound right but contain the wrong facts.') +
             howStep(3, 'Keep everyone happy', 'Customers lose patience while they wait on you. Juggle your chats and wrap up each one with the right code.') +
           '</section>' +
+          // Accounts (superadmin, company admin, coach, agent) live on the same site, under app/
+          '<section class="lb-account"><div><b>¿Tienes cuenta en ShiftReady?</b><span>Superadministrador, administrador de empresa, coach o agente: entra con tu correo.</span></div>' +
+            '<a class="btn btn-primary btn-lg" href="app/">' + icon('user', 16) + (hasAccountSession() ? 'Mi cuenta' : 'Ingresar') + '</a></section>' +
           '<footer class="lb-foot"><span>Progress is saved in this browser.</span>' +
             '<button class="link-quiet" data-act="replay-boot">Replay welcome</button>' +
             (store.unlockAll ? '' : '<button class="link-quiet" data-act="unlock-all">Unlock all days</button>') +
@@ -345,6 +348,10 @@
     updateRotate();
   }
 
+  // A platform session saved by app/ (same site): only changes the button label, grants nothing
+  function hasAccountSession() {
+    try { const s = JSON.parse(localStorage.getItem('sb-euusjtfndzlvxrpimwkq-auth-token')); return !!(s && s.access_token); } catch (e) { return false; }
+  }
   function removeCustomDays() {
     for (let i = D.days.length - 1; i >= 0; i--) if (isCustomDay(D.days[i].n)) D.days.splice(i, 1);
     for (let i = D.scenarios.length - 1; i >= 0; i--) if (isCustomDay(D.scenarios[i].day)) D.scenarios.splice(i, 1);
