@@ -21,7 +21,7 @@
     ai_not_configured: 'La IA todavía no está configurada en el servidor (falta la clave de Anthropic).',
     ai_busy: 'La IA está ocupada. Prueba en un momento.',
     refused: 'La IA no pudo crear casos con ese contenido. Prueba a reformular la petición.',
-    invalid_cases: 'La IA generó casos con errores que el simulador no puede jugar. Prueba otra vez.',
+    invalid_cases: 'La IA generó casos con errores que el simulador no puede usar. Prueba otra vez.',
     too_much_text: 'Los documentos son demasiado largos. Sube menos texto.',
     too_long: 'La respuesta fue demasiado larga. Pide menos clientes por día.'
   };
@@ -192,7 +192,7 @@
         '<div class="tc-msgs" id="tcMsgs" aria-live="polite">' + S.msgs.map((m, i) =>
           '<div class="tc-msg ' + m.from + '"><div class="tc-bub">' + esc(m.text) + (m.files ? '<div class="tc-att">' + m.files.map(f => ic('paperclip', 12) + esc(f)).join('<br>') + '</div>' : '') + '</div>' +
           (m.plan ? planHTML(m.plan) : '') +
-          (m.ready ? '<button type="button" class="tc-send tc-gen" data-tc="play">' + ic('play', 14) + 'Jugar este entrenamiento</button>' : '') +
+          (m.ready ? '<button type="button" class="tc-send tc-gen" data-tc="play">' + ic('play', 14) + 'Empezar el entrenamiento</button>' : '') +
           (m.signup ? '<a class="tc-mini tc-gen" href="' + SIGNUP_URL + '">' + ic('user', 13) + 'Crear cuenta gratis</a>' : '') + (m.from === 'me' ? '<button type="button" class="tc-del" data-tc="del" data-i="' + i + '" aria-label="Borrar mensaje">' + ic('x', 12) + '</button>' : '') + '</div>').join('') +
           (busy ? '<div class="tc-msg bot"><div class="tc-bub tc-typing">Analizando (demo)…</div></div>' : '') + '</div>' +
         '<div class="tc-files">' + (files.length ? files.map(f =>
