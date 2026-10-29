@@ -74,7 +74,6 @@ window.SR = window.SR || {};
 
     const words = Array.prototype.slice.call(root.querySelectorAll('.boot-word'));
     const logo = root.querySelector('.boot-logo');
-    const hint = root.querySelector('.boot-hint');
     const anims = [];
     const A = (el, kf, opt) => { const a = el.animate(kf, Object.assign({ fill: 'both' }, opt)); anims.push(a); return a; };
 
@@ -100,7 +99,6 @@ window.SR = window.SR || {};
     // 1. The logo comes in and waits to be pressed
     A(logo, [reduce ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.92)', filter: 'blur(6px)' }, show],
       { duration: 700, delay: 150, easing: EASE_OUT });
-    A(hint, [{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: 750, easing: EASE_OUT });
 
     // 2. Pressed: the voice starts here, inside the press, so the browser allows the sound
     function begin() {

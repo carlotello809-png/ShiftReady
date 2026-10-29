@@ -12,6 +12,8 @@
 // Values the engine and ui.js accept. Where they come from:
 const OUTCOMES = ['resolved', 'unresolved'];             // engine finish() + ui.js OUTCOMES
 const CHANNELS = ['web', 'app', 'whatsapp', 'messenger']; // ui.js CH (unknown value = crash)
+const CALL_CHANNEL = 'phone';                              // calls (data/calls.js) always use ui.js CH.phone
+const CALL_LEVELS = [1, 2, 3];                            // engine CALL_TIER: Easy, Medium, Hard/Expert days
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];   // app.css .prio-low … .prio-urgent
 const VERIFIED = [true, false, 'na'];                     // ui.js verifyPill()
 const HISTORY_FROM = ['bot', 'customer', 'agent', 'system']; // ui.js messageHTML()
@@ -43,6 +45,7 @@ const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 function validate(D) {
   const issues = [];
   const summaries = [];
+  const callSummaries = [];
   let current = null;
   const add = (level, code, where, message) => issues.push({ level, code, scenario: current, where, message });
   const err = (code, where, message) => add('error', code, where, message);
@@ -59,6 +62,7 @@ function validate(D) {
   const policies = isObj(D.policies) ? D.policies : {};
   const products = isObj(D.products) ? D.products : {};
   const scenarios = Array.isArray(D.scenarios) ? D.scenarios : [];
+  const calls = Array.isArray(D.calls) ? D.calls : [];
   if (!Array.isArray(D.days)) err('E_DATA', 'SR.data.days', 'Falta la lista de días.');
   if (!isObj(D.personas)) err('E_DATA', 'SR.data.personas', 'Faltan los tipos de cliente.');
   if (!Array.isArray(D.dispositions)) err('E_DATA', 'SR.data.dispositions', 'Faltan los códigos de cierre.');
@@ -115,39 +119,64 @@ function validate(D) {
     }
   });
 
+  /* ---------- phone calls ("Chats + calls" shifts) ---------- */
+  if (has(D, 'calls') && !Array.isArray(D.calls)) err('E_DATA', 'SR.data.calls', 'calls debe ser una lista.');
+  calls.forEach((s, i) => {
+    current = isObj(s) && isStr(s.id) ? s.id : 'call #' + i;
+    const before = issues.length;
+    const stats = checkScenario(s, i, true);
+    const mine = issues.slice(before);
+    callSummaries.push(Object.assign({
+      id: current, level: isObj(s) ? s.level : undefined,
+      errors: mine.filter(x => x.level === 'error').length,
+      warnings: mine.filter(x => x.level === 'warning').length
+    }, stats));
+  });
+  current = null;
+  if (calls.length) CALL_LEVELS.forEach(l => {
+    if (!calls.some(s => isObj(s) && s.level === l)) warn('W_NO_CALLS', 'calls (level ' + l + ')', 'Ningún caso de llamada de nivel ' + l + ': esos días no tendrán llamadas.');
+  });
+
   return finish();
 
   function finish() {
     return {
       errors: issues.filter(x => x.level === 'error'),
       warnings: issues.filter(x => x.level === 'warning'),
-      scenarios: summaries
+      scenarios: summaries,
+      calls: callSummaries
     };
   }
 
-  function checkScenario(s, i) {
+  // asCall: a phone call (data/calls.js) — it has a level instead of a day and arrival time
+  function checkScenario(s, i, asCall) {
     const stats = { nodes: 0, options: 0, endings: 0 };
-    if (!isObj(s)) { err('E_TYPE', 'scenarios[' + i + ']', 'El caso debe ser un objeto.'); return stats; }
+    if (!isObj(s)) { err('E_TYPE', (asCall ? 'calls[' : 'scenarios[') + i + ']', 'El caso debe ser un objeto.'); return stats; }
 
     // identity and required fields
     if (!isStr(s.id)) err('E_REQUIRED', 'id', 'Falta el identificador (id).');
     else if (seenIds.has(s.id)) err('E_DUPLICATE_ID', 'id', 'Identificador repetido: ' + s.id);
     else seenIds.add(s.id);
 
-    Object.keys(s).forEach(k => { if (KNOWN.scenario.indexOf(k) === -1) warn('W_UNKNOWN_FIELD', k, 'Campo desconocido "' + k + '": el motor y la interfaz lo ignoran (¿error de escritura?).'); });
+    Object.keys(s).forEach(k => { if (KNOWN.scenario.indexOf(k) === -1 && !(asCall && k === 'level')) warn('W_UNKNOWN_FIELD', k, 'Campo desconocido "' + k + '": el motor y la interfaz lo ignoran (¿error de escritura?).'); });
 
-    if (!Number.isInteger(s.day)) err('E_REQUIRED', 'day', 'day debe ser un número entero.');
+    if (asCall) {
+      if (CALL_LEVELS.indexOf(s.level) === -1) err('E_REQUIRED', 'level', 'level debe ser 1, 2 o 3 (días fáciles, medios o difíciles).');
+      ['day', 'arrive', 'history'].forEach(k => { if (has(s, k)) warn('W_IGNORED_FIELD', k, 'Las llamadas no usan "' + k + '": suenan durante el turno, una tras otra.'); });
+      if (s.channel !== CALL_CHANNEL) err('E_UNKNOWN_CHANNEL', 'channel', 'Las llamadas usan channel "' + CALL_CHANNEL + '".');
+    } else if (!Number.isInteger(s.day)) err('E_REQUIRED', 'day', 'day debe ser un número entero.');
     else if (!dayNs.has(s.day)) err('E_UNKNOWN_DAY', 'day', 'El día ' + s.day + ' no existe en SR.data.days.');
     else {
       perDay[s.day] = (perDay[s.day] || 0) + 1;
       if (isStr(s.id) && s.id.indexOf('d' + s.day + '-') !== 0) warn('W_ID_PREFIX', 'id', 'El id no empieza por "d' + s.day + '-" como los demás casos de ese día.');
     }
-    if (!isNum(s.arrive) || s.arrive < 0) err('E_REQUIRED', 'arrive', 'arrive debe ser un número ≥ 0 (segundos): si no, el cliente nunca llega y el turno no termina.');
+    if (!asCall && (!isNum(s.arrive) || s.arrive < 0)) err('E_REQUIRED', 'arrive', 'arrive debe ser un número ≥ 0 (segundos): si no, el cliente nunca llega y el turno no termina.');
 
     if (!isStr(s.persona)) err('E_REQUIRED', 'persona', 'Falta el tipo de cliente (persona).');
     else if (!has(personas, s.persona)) err('E_UNKNOWN_PERSONA', 'persona', 'Tipo de cliente desconocido "' + s.persona + '" (el motor usaría "neutral" sin avisar).');
 
-    if (!isStr(s.channel)) err('E_REQUIRED', 'channel', 'Falta el canal (channel).');
+    if (asCall) { /* checked above */ }
+    else if (!isStr(s.channel)) err('E_REQUIRED', 'channel', 'Falta el canal (channel).');
     else if (CHANNELS.indexOf(s.channel) === -1) err('E_UNKNOWN_CHANNEL', 'channel', 'Canal desconocido "' + s.channel + '": la interfaz falla al mostrarlo. Válidos: ' + CHANNELS.join(', ') + '.');
 
     if (!isStr(s.priority)) err('E_REQUIRED', 'priority', 'Falta la prioridad (priority).');
@@ -394,6 +423,16 @@ function printReport(D, res) {
     const mark = s.errors ? '✗ ' + plural(s.errors, 'error', 'errores') : s.warnings ? '! ' + plural(s.warnings, 'advertencia', 'advertencias') : '✓';
     out.push('  Día ' + pad(s.day, 2) + ' ' + pad(s.id, 14) + pad(s.nodes + ' nodos', 10) + pad(s.options + ' opciones', 13) + pad(plural(s.endings, 'final', 'finales'), 11) + mark);
   });
+  const calls = res.calls || [];
+  if (calls.length) {
+    const ct = calls.reduce((a, s) => ({ nodes: a.nodes + s.nodes, options: a.options + s.options }), { nodes: 0, options: 0 });
+    out.push('');
+    out.push('Llamadas (modo Chats + calls): ' + plural(calls.length, 'caso', 'casos') + ' · ' + ct.nodes + ' nodos · ' + ct.options + ' opciones');
+    calls.forEach(s => {
+      const mark = s.errors ? '✗ ' + plural(s.errors, 'error', 'errores') : s.warnings ? '! ' + plural(s.warnings, 'advertencia', 'advertencias') : '✓';
+      out.push('  Nivel ' + pad(s.level, 2) + pad(s.id, 14) + pad(s.nodes + ' nodos', 10) + pad(s.options + ' opciones', 13) + pad(plural(s.endings, 'final', 'finales'), 11) + mark);
+    });
+  }
   const list = (title, items) => {
     if (!items.length) return;
     out.push('');

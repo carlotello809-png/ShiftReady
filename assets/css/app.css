@@ -1874,3 +1874,116 @@ a.btn { text-decoration: none; }
   .rp-actions .btn { flex: 1 1 auto; }
   .kpis.k4 .kpi b { font-size: 19px; }
 }
+
+/* =========================================================
+   PHONE CALLS ("Chats + calls" shifts) and recorded voices
+   ========================================================= */
+.ch-phone { color: var(--success); }
+.qs-chip.qs-calls { display: inline-flex; align-items: center; gap: 4px; color: var(--success); background: var(--success-50); border-color: var(--success-100); }
+.diff-chip.calls-chip { display: inline-flex; align-items: center; gap: 4px; color: var(--success); border-left-color: var(--success); }
+.tb-stat.hot.ring b { color: var(--success); }
+
+/* Incoming call: card at the top right while the phone rings */
+.call-in {
+  position: fixed; top: 72px; right: 16px; z-index: 57; width: min(380px, calc(100vw - 24px));
+  visibility: hidden; opacity: 0; transform: translateY(-10px) scale(.97); pointer-events: none;
+  transition: opacity 200ms var(--ease-out), transform 260ms var(--ease-out), visibility 0s linear 260ms;
+}
+.call-in.on { visibility: visible; opacity: 1; transform: none; pointer-events: auto; transition: opacity 200ms var(--ease-out), transform 260ms var(--ease-out); }
+.cc-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px 14px 18px 16px; background: var(--panel); border: 1px solid var(--success-100); border-left: 4px solid var(--success); box-shadow: var(--sh-3); overflow: hidden; }
+.cc-av { position: relative; flex: none; display: grid; place-items: center; }
+.cc-av .av { position: relative; z-index: 1; }
+.cc-pulse { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--success); opacity: 0; animation: ccPulse 1.6s var(--ease-out) infinite; }
+.cc-pulse.d2 { animation-delay: .8s; }
+@keyframes ccPulse { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.7); opacity: 0; } }
+.cc-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cc-k { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--success); }
+.cc-t b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-t span:last-child { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn.cc-answer, .btn.cr-answer { background: var(--success); border-color: var(--success); color: #fff; gap: 6px; }
+.btn.cc-answer { flex: none; }
+.cc-answer kbd { margin-left: 2px; font-size: 10.5px; padding: 0 5px; background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .4); color: #fff; box-shadow: none; }
+.cc-answer .i, .cr-answer .i { animation: phoneRing 1.25s ease-in-out infinite; transform-origin: 50% 60%; }
+@keyframes phoneRing { 0%, 50%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-14deg); } 20%, 40% { transform: rotate(14deg); } }
+@media (hover: hover) and (pointer: fine) { .btn.cc-answer:hover, .btn.cr-answer:hover { background: #0f7d4f; border-color: #0f7d4f; color: #fff; } }
+.btn.cc-answer:active, .btn.cr-answer:active { transform: scale(.97); }
+.cc-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--success-50); }
+.cc-bar i { display: block; height: 100%; background: var(--success); transform-origin: left center; transition: transform 220ms linear; }
+
+/* A call in the inbox */
+.ci.st-ringing { background: var(--success-50); }
+.chip-ring { background: var(--success); color: #fff; animation: ringChip 1.2s ease-in-out infinite; }
+@keyframes ringChip { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+.ring-txt { color: var(--success); font-weight: 600; }
+.ci .wait-chip.hold { background: var(--info-50); color: var(--info); }
+
+/* The open call: state strip, spoken lines, caller speaking */
+.call-bar { display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 7px 18px; font-size: 12.5px; background: var(--subtle); border-bottom: 1px solid var(--line); }
+.call-bar[data-state="live"] { background: var(--success-50); border-bottom-color: var(--success-100); }
+.call-bar[data-state="hold"] { background: var(--info-50); border-bottom-color: var(--primary-100); }
+.call-bar[data-state="ring"] { background: var(--success-50); border-bottom-color: var(--success-100); }
+.cb-state { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; color: var(--ink-2); }
+.cb-state.live, .cb-state.ring { color: var(--success); }
+.cb-state.hold { color: var(--info); }
+.cb-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: cbDot 1.4s ease-in-out infinite; }
+@keyframes cbDot { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.cb-time { font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.cb-sub { color: var(--ink-3); }
+.cb-sp { flex: 1; }
+.cb-hold { gap: 6px; }
+.cb-hold.on { background: var(--info-50); border-color: var(--info); color: var(--info); }
+.bubble.said .said-ic { display: inline-block; vertical-align: -2px; margin-right: 6px; color: var(--success); }
+.bubble.speaking { display: inline-flex; gap: 3px; align-items: center; height: 40px; padding: 0 16px; background: var(--cust); width: fit-content; }
+.bubble.speaking i, .wave i { width: 3px; height: 16px; border-radius: 2px; background: var(--success); animation: wave 1s ease-in-out infinite; }
+.bubble.speaking i:nth-child(2), .wave i:nth-child(2), .rv-bars i:nth-child(2) { animation-delay: .12s; }
+.bubble.speaking i:nth-child(3), .wave i:nth-child(3), .rv-bars i:nth-child(3) { animation-delay: .24s; }
+.bubble.speaking i:nth-child(4), .wave i:nth-child(4), .rv-bars i:nth-child(4) { animation-delay: .36s; }
+.bubble.speaking i:nth-child(5) { animation-delay: .48s; }
+.wave { display: inline-flex; gap: 3px; align-items: center; height: 18px; }
+@keyframes wave { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+.call-ring { display: flex; align-items: center; gap: 16px; padding: 18px; background: var(--success-50); }
+.call-ring .cc-av { margin: 4px; }
+.cr-t { flex: 1; min-width: 0; }
+.cr-t b { display: block; font-size: 15px; margin-bottom: 2px; }
+.cr-t p { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.cr-left { font-weight: 700; color: var(--success); font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 760px) { .bubble.speaking { background: var(--wa-cust); } .call-ring { flex-wrap: wrap; } .cr-answer { flex: 1 1 100%; } }
+
+/* Report: the coach message that is spoken aloud, and the calls of the shift */
+.rp-voice { display: flex; gap: 14px; align-items: flex-start; margin-top: 14px; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--primary); box-shadow: var(--sh-1); }
+.rv-av { width: 40px; height: 40px; flex: none; display: grid; place-items: center; background: var(--primary-50); color: var(--primary); }
+.rp-voice.rv-good { border-left-color: var(--success); }
+.rp-voice.rv-good .rv-av { background: var(--success-50); color: var(--success); }
+.rp-voice.rv-ok { border-left-color: var(--warning); }
+.rp-voice.rv-ok .rv-av { background: var(--warning-50); color: var(--warning); }
+.rp-voice.rv-bad { border-left-color: var(--danger); }
+.rp-voice.rv-bad .rv-av { background: var(--danger-50); color: var(--danger); }
+.rv-b { min-width: 0; }
+.rv-k { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.rv-b p { font-size: 14.5px; line-height: 1.6; color: var(--ink); max-width: 780px; }
+.rv-bars { display: inline-flex; gap: 2px; align-items: center; height: 12px; opacity: 0; transition: opacity 200ms ease; }
+.rv-bars i { width: 2px; height: 12px; border-radius: 1px; background: currentColor; transform: scaleY(.3); }
+.rp-voice.speaking .rv-bars { opacity: 1; }
+.rp-voice.speaking .rv-bars i { animation: wave .9s ease-in-out infinite; }
+.rp-calls { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); margin: -14px 0 28px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.rpc-h { display: flex; align-items: center; gap: 10px; padding: 12px 14px; min-width: 0; }
+.rpc-ic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; background: var(--success-50); color: var(--success); }
+.rpc-h b { display: block; font-size: 14px; }
+.rpc-h span { font-size: 12px; color: var(--ink-3); }
+.rpc-s { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-left: 1px solid var(--line); min-width: 0; }
+.rpc-s small { font-size: 11.5px; color: var(--ink-3); }
+.rpc-s b { font-size: 18px; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+@media (max-width: 980px) {
+  .rp-calls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rpc-h { grid-column: 1 / -1; border-bottom: 1px solid var(--line); }
+  .rpc-s:nth-child(even) { border-left: 0; }
+  .rpc-s:nth-child(n+4) { border-top: 1px solid var(--line); }
+}
+:root[data-theme="dark"] .btn.cc-answer, :root[data-theme="dark"] .btn.cr-answer, :root[data-theme="dark"] .chip-ring { color: #04210f; }
+:root[data-theme="dark"] .cc-answer kbd { color: #04210f; background: rgba(0, 0, 0, .12); border-color: rgba(0, 0, 0, .25); }
+@media (hover: hover) and (pointer: fine) { :root[data-theme="dark"] .btn.cc-answer:hover, :root[data-theme="dark"] .btn.cr-answer:hover { background: #5fdca4; border-color: #5fdca4; color: #04210f; } }
+@media (prefers-reduced-motion: reduce) {
+  .cc-pulse, .chip-ring, .cb-dot, .bubble.speaking i, .wave i, .rp-voice.speaking .rv-bars i, .cc-answer .i, .cr-answer .i { animation: none !important; }
+  .cc-pulse { opacity: .5; transform: scale(1.25); }
+  .call-in { transform: none !important; }
+}

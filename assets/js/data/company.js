@@ -114,7 +114,8 @@ SR.data.policies = {
       'Customers in the mobile app, or signed in on web chat, are pre-verified (shown as “Verified” in Contact info).',
       'Guest chats must be verified with TWO of: email on file, order number, billing ZIP code, phone number on file.',
       'Never ask for passwords, full card numbers, security codes or one-time codes.',
-      'If the account email was recently changed, verify with details from BEFORE the change (phone on file, billing ZIP).'
+      'If the account email was recently changed, verify with details from BEFORE the change (phone on file, billing ZIP).',
+      'Only the account holder can view or change their account and orders. Someone calling for them (a partner, a relative) can’t be helped with that account — the holder can make the change in the app or contact us themselves.'
     ]
   },
   orders: {

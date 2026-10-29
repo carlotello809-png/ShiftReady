@@ -16,6 +16,19 @@
   // Below this patience the customer counts as "Angry"
   const ANGRY_AT = 20;
 
+  /* Phone calls: only in "Chats + calls" shifts (startDay o.calls). A chats-only shift never
+     reaches any of this, so it plays and scores exactly as before. */
+  const RING_MS = 20000;          // a call rings 5 times (assets/audio/ringtone.mp3) before it is missed
+  const RING_DECAY = 1.2;         // patience lost per second while the phone rings
+  const CALL_SILENCE = 1.6;       // silence on the line drains patience faster than a waiting chat…
+  const ON_HOLD = 0.35;           // …and much slower while the caller is on hold
+  const CALL_GAP = 25000;         // after a call ends, the next one rings at least this much later
+  const SPEAK_MS = 66;            // ms per character a caller takes to say a line (browser voice pace)
+  const CALL_NUDGES = ['Hello? Are you still there?', "Hello…? I can't hear anything.", "I'm going to hang up if nobody's there."];
+  const CALL_LEAVE = "You know what, I'll call back another time. Goodbye.";
+  // Which calls a day gets, by the day's level (data/calls.js: level 1, 2 or 3)
+  const CALL_TIER = { Easy: 1, Medium: 2, Hard: 3, Expert: 3 };
+
   // Pressure of a shift, as multipliers (1 = the standard simulation):
   //   decay  how fast waiting customers lose patience
   //   arrive spacing between customer arrivals (lower = more chats at once)
@@ -47,6 +60,7 @@
     let random = baseRandom;       // a shift started with a seed uses its own sequence
 
     const E = { st: null, hooks: {}, settings: {}, activeId: null, lastTs: 0, fixedStep: 0, steps: 0, acc: 0 };
+    E.RING_MS = RING_MS;           // the screen shows how long a call keeps ringing
 
     function emit(name) {
       const h = E.hooks[name];
@@ -77,8 +91,26 @@
     }
     E.fill = fill;
 
+    function newConv(sc, i, n, call) {
+      return {
+        id: sc.id, sc, idx: i, call: !!call,
+        persona: D.personas[sc.persona] || D.personas.neutral,
+        ticket: 20400 + n * 120 + i * 13,
+        arrived: false, status: 'pending', messages: [], node: null,
+        used: new Set(), order: [], selected: null,
+        patience: sc.patience != null ? sc.patience : 100,
+        startPatience: sc.patience != null ? sc.patience : 100,
+        nudges: 0, typing: false, unread: 0,
+        turnStart: null, turnToken: 0, flowToken: 0,
+        firstResponse: null, responseTimes: [], decisions: [],
+        outcome: null, csat: null, accuracy: null, correctDisp: [], disposition: null, dispOk: null,
+        arrivedAt: null, endedAt: null, closedAt: null, lastAt: 0
+      };
+    }
+
     /* ---------- shift lifecycle ---------- */
     // o.pace: see paceOf() · o.seed: number for a repeatable shift
+    // o.calls: true (or a number) adds phone calls to the shift; without it there are only chats
     E.startDay = function (n, o) {
       o = o || {};
       const day = D.days.find(d => d.n === n);
@@ -92,28 +124,69 @@
       const seed = typeof o.seed === 'number' && isFinite(o.seed) ? o.seed >>> 0 : null;
       random = seed == null ? baseRandom : seededRandom(seed);
       const st = E.st = { day, n, clock: 0, queue: [], seq: 0, mid: 0, paused: false, running: true, ended: false, convs: [], pace: paceOf(o.pace), seed };
-      st.convs = scs.map((sc, i) => ({
-        id: sc.id, sc, idx: i,
-        persona: D.personas[sc.persona] || D.personas.neutral,
-        ticket: 20400 + n * 120 + i * 13,
-        arrived: false, status: 'pending', messages: [], node: null,
-        used: new Set(), order: [], selected: null,
-        patience: sc.patience != null ? sc.patience : 100,
-        startPatience: sc.patience != null ? sc.patience : 100,
-        nudges: 0, typing: false, unread: 0,
-        turnStart: null, turnToken: 0, flowToken: 0,
-        firstResponse: null, responseTimes: [], decisions: [],
-        outcome: null, csat: null, accuracy: null, correctDisp: [], disposition: null, dispOk: null,
-        arrivedAt: null, endedAt: null, closedAt: null, lastAt: 0
-      }));
+      st.convs = scs.map((sc, i) => newConv(sc, i, n));
       E.activeId = null;
       E.steps = 0;                 // fixed steps played in this shift (see E.tick)
       E.acc = 0;
       // small lead-in so the agent sees an empty inbox for a moment
       st.convs.forEach(c => schedule(1200 + (c.sc.arrive - arriveFrom) * 1000 * st.pace.arrive, () => arrive(c)));
+      if (o.calls) addCalls(st, scs, arriveFrom, o.calls);
       E.lastTs = readClock();
       emit('start', st);
     };
+
+    // Calls of the day's level, one after another: the first rings partway through the shift,
+    // each next one a while after the previous call ends.
+    function addCalls(st, scs, arriveFrom, want) {
+      const pool = (Array.isArray(D.calls) ? D.calls : []).filter(k => k.level === (CALL_TIER[st.day.level] || 2));
+      if (!pool.length) return;
+      const count = Math.min(pool.length, typeof want === 'number' && want >= 1 ? Math.floor(want) : scs.length <= 2 ? 1 : 2);
+      const from = st.seed != null ? st.seed % pool.length : 0;    // a repeatable shift always gets the same calls
+      for (let k = 0; k < count; k++) st.convs.push(newConv(pool[(from + k) % pool.length], st.convs.length, st.n, true));
+      const span = scs.length ? scs[scs.length - 1].arrive - arriveFrom : 0;
+      schedule(1200 + (span * 0.4 + 30) * 1000 * st.pace.arrive, ringNext);
+    }
+    function ringNext() {
+      const st = E.st;
+      const c = st.convs.find(x => x.call && !x.arrived);
+      if (c) arrive(c);
+    }
+
+    // The agent picks up a ringing call
+    E.answer = function (id) {
+      const c = E.get(id);
+      if (!c || !c.call || c.status !== 'ringing') return false;
+      const st = E.st;
+      c.answeredAt = st.clock;
+      c.answerTime = st.clock - c.arrivedAt;
+      c.firstResponse = c.answerTime;     // a call's first response is picking it up
+      pushMsg(c, { from: 'system', kind: 'call-start', text: 'Call connected' });
+      enterNode(c, c.sc.start, null, 'first');    // the call is on the line before the screen hears about it
+      emit('answer', c);
+      return true;
+    };
+
+    // Hold: while it's your turn on a call, the caller waits on hold and loses patience slowly
+    E.hold = function (id, on) {
+      const c = E.get(id);
+      on = !!on;
+      if (!c || !c.call || c.status !== 'agent' || on === !!c.onHold) return false;
+      setHold(c, on);
+      return true;
+    };
+    function setHold(c, on) {
+      const st = E.st;
+      c.onHold = on;
+      if (on) { c.holds = (c.holds || 0) + 1; c.holdAt = st.clock; }
+      else c.holdMs = (c.holdMs || 0) + (st.clock - c.holdAt);
+      pushMsg(c, { from: 'system', kind: on ? 'hold' : 'resume', text: on ? 'Caller on hold' : 'Call resumed' });
+      emit('hold', c);
+    }
+
+    function missCall(c) {
+      pushMsg(c, { from: 'system', kind: 'missed', text: 'Missed call · ' + c.sc.customer.first + ' hung up after ' + Math.round(RING_MS / 1000) + ' seconds' });
+      finish(c, 'missed', {});
+    }
 
     E.quit = function () { E.st = null; E.activeId = null; };
     E.setPaused = function (p) {
@@ -174,14 +247,16 @@
     function decay(dt) {
       const st = E.st;
       for (const c of st.convs) {
+        if (c.status === 'ringing') { c.patience = Math.max(0, c.patience - RING_DECAY * dt / 1000); continue; }
         if (c.status !== 'agent') continue;
-        const rate = st.day.decay * c.persona.decay * (c.sc.decay || 1) * st.pace.decay;
+        let rate = st.day.decay * c.persona.decay * (c.sc.decay || 1) * st.pace.decay;
+        if (c.call) rate *= c.onHold ? ON_HOLD : CALL_SILENCE;
         const before = c.patience;
         c.patience = Math.max(0, c.patience - rate * dt / 1000);
         // The moment a waiting customer turns angry, the UI raises the alarm
         if (before > ANGRY_AT && c.patience <= ANGRY_AT) emit('angry', c);
         if (c.nudges < NUDGE_AT.length && c.patience <= NUDGE_AT[c.nudges]) {
-          nudge(c, c.nudges);
+          if (!c.onHold) nudge(c, c.nudges);    // on hold the caller hears music and says nothing
           c.nudges++;
         }
         if (c.patience <= 0) abandon(c);
@@ -189,10 +264,15 @@
     }
 
     function nudge(c, level) {
-      const list = c.sc.nudges || c.persona.nudges;
+      const list = c.sc.nudges || (c.call ? CALL_NUDGES : c.persona.nudges);
       const text = fill(list[Math.min(level, list.length - 1)], c);
       const token = c.turnToken;
       const ok = () => c.status === 'agent' && c.turnToken === token;
+      if (c.call) {
+        // On the phone the caller just speaks up
+        schedule(250, () => { if (ok() && !c.onHold) pushMsg(c, { from: 'customer', text, nudge: true, spoken: true }); });
+        return;
+      }
       schedule(250, () => { if (!ok()) return; c.typing = true; emit('typing', c); });
       schedule(250 + clamp(text.length * 32 * c.persona.typing, 900, 2800), () => {
         if (!ok()) return;
@@ -205,9 +285,10 @@
       c.patience = 0;
       c.turnToken++;
       c.typing = false;
-      const text = fill(c.sc.leave || c.persona.leave, c);
+      if (c.onHold) { c.onHold = false; c.holdMs = (c.holdMs || 0) + (E.st.clock - c.holdAt); }
+      const text = fill(c.sc.leave || (c.call ? CALL_LEAVE : c.persona.leave), c);
       say(c, [text], () => {
-        pushMsg(c, { from: 'system', kind: 'left', text: c.sc.customer.first + ' left the conversation' });
+        pushMsg(c, { from: 'system', kind: 'left', text: c.sc.customer.first + (c.call ? ' hung up' : ' left the conversation') });
         finish(c, 'abandoned', {});
       }, { first: 300 });
     }
@@ -228,6 +309,14 @@
       const st = E.st;
       c.arrived = true;
       c.arrivedAt = st.clock;
+      if (c.call) {
+        // The phone rings: answer within RING_MS or the call is missed
+        c.status = 'ringing';
+        pushMsg(c, { from: 'system', kind: 'ringing', text: 'Incoming call' }, true);
+        emit('ring', c);
+        schedule(RING_MS, () => { if (c.status === 'ringing') missCall(c); });
+        return;
+      }
       const hist = c.sc.history || [];
       hist.forEach(h => {
         const m = Object.assign({}, h, { at: st.clock - (h.ago || 0) * 1000, hist: true });
@@ -253,7 +342,7 @@
       c.used = new Set();
       c.order = [];
       const msgs = (pre || []).concat(node.c || []);
-      const opt = mode === 'first' ? { first: rand(1100, 2000) } : mode === 'reply' ? { reply: true } : null;
+      const opt = mode === 'first' ? { first: c.call ? rand(500, 900) : rand(1100, 2000) } : mode === 'reply' ? { reply: true } : null;
       say(c, msgs, () => {
         if (node.end) finish(c, node.end, node);
         else startTurn(c);
@@ -271,11 +360,25 @@
       }
       let t;
       if (opt && opt.first != null) t = opt.first;
-      else if (opt && opt.reply) t = replyDelay(c);
+      else if (opt && opt.reply) t = c.call ? rand(600, 1200) : replyDelay(c);   // on the phone people answer right away
       else t = rand(1000, 1800);
       c.replyAt = E.st.clock + t;
       msgs.forEach(raw => {
         const text = fill(raw, c);
+        if (c.call) {
+          // A caller's line appears as they start saying it (the screen reads it aloud), then they finish
+          const dur = clamp(text.length * SPEAK_MS, 1400, 9000);
+          schedule(t, () => {
+            if (c.flowToken !== token) return;
+            c.typing = true;
+            pushMsg(c, { from: 'customer', text, spoken: true, dur });
+            emit('typing', c);
+          });
+          t += dur;
+          schedule(t, () => { if (c.flowToken !== token) return; c.typing = false; emit('typing', c); });
+          t += rand(250, 450);
+          return;
+        }
         const dur = clamp(text.length * 32 * c.persona.typing * (c.sc.typing || 1), 900, 5600);
         schedule(t, () => { if (c.flowToken !== token) return; c.typing = true; emit('typing', c); });
         t += dur;
@@ -326,6 +429,7 @@
       const o = node.o[i];
       if (!o || c.used.has(i)) return false;
       const st = E.st;
+      if (c.onHold) setHold(c, false);    // speaking to the caller takes them off hold
       const rt = st.clock - c.turnStart;
       if (c.firstResponse == null) c.firstResponse = rt;
       c.responseTimes.push(rt);
@@ -365,12 +469,13 @@
       c.accuracy = n ? c.decisions.reduce((s, d) => s + d.q, 0) / (3 * n) : 0;
       c.csat = computeCsat(c);
       if (src && src.sys) pushMsg(c, { from: 'system', kind: 'agent-ended', text: src.sys });
-      pushMsg(c, { from: 'system', kind: 'ended', outcome, csat: c.csat, text: 'Chat ended' });
+      pushMsg(c, { from: 'system', kind: 'ended', outcome, csat: c.csat, text: c.call ? 'Call ended' : 'Chat ended' });
       emit('end', c);
+      if (c.call) schedule(CALL_GAP * st.pace.arrive, ringNext);
     }
 
     function computeCsat(c) {
-      if (c.outcome === 'abandoned') return 1;
+      if (c.outcome === 'abandoned' || c.outcome === 'missed') return 1;
       if (c.outcome === 'unresolved') return c.accuracy >= 0.6 ? 2 : 1;
       const s = 0.7 * c.accuracy + 0.3 * (c.patience / 100);
       return s >= 0.88 ? 5 : s >= 0.72 ? 4 : s >= 0.55 ? 3 : s >= 0.38 ? 2 : 1;
@@ -418,7 +523,17 @@
         0.10 * wrap * 100
       );
       const stars = score >= 90 ? 3 : score >= 75 ? 2 : score >= 60 ? 1 : 0;
-      return { n, day: st.day, resolved, abandoned, avgCsat, acc, wrap, frt, art, score, stars, passed: score >= 60, convs: cs, duration: st.clock };
+      // Calls count in the score like any conversation (a missed call scores like a customer who left)
+      const calls = cs.filter(c => c.call);
+      const callStats = calls.length ? {
+        n: calls.length,
+        answered: calls.filter(c => c.answeredAt != null).length,
+        missed: calls.filter(c => c.outcome === 'missed').length,
+        hungUp: calls.filter(c => c.outcome === 'abandoned').length,
+        avgAnswer: avg(calls.filter(c => c.answerTime != null).map(c => c.answerTime)),
+        holds: calls.reduce((s, c) => s + (c.holds || 0), 0)
+      } : null;
+      return { n, day: st.day, resolved, abandoned, avgCsat, acc, wrap, frt, art, score, stars, passed: score >= 60, convs: cs, duration: st.clock, calls: callStats };
     };
 
     E.liveStats = function () {
@@ -426,13 +541,16 @@
       if (!st) return null;
       const arrived = st.convs.filter(c => c.arrived);
       const done = st.convs.filter(c => c.csat != null);
-      return {
+      const out = {
         total: st.convs.length,
         open: arrived.filter(c => c.status !== 'closed').length,
         waiting: arrived.filter(c => c.status === 'agent').length,
         closed: st.convs.filter(c => c.status === 'closed').length,
         csat: done.length ? avg(done.map(c => c.csat)) : null
       };
+      // Shifts with calls also say how many phones are ringing
+      if (st.convs.some(c => c.call)) out.ringing = arrived.filter(c => c.status === 'ringing').length;
+      return out;
     };
 
     return E;

@@ -72,8 +72,17 @@
     { id: 'normal', label: 'Normal', mult: 1, blurb: 'Each customer’s usual pace' },
     { id: 'slow', label: 'Slow', mult: 1.5, blurb: 'Customers take about 50% longer' }
   ];
-  const DEFAULT_SETTINGS = { difficulty: DEFAULT_DIFFICULTY, customers: null, reply: 'auto' };
+  const DEFAULT_SETTINGS = { difficulty: DEFAULT_DIFFICULTY, customers: null, reply: 'auto', mode: 'chat' };
   function replySpeed(id) { return REPLY_SPEEDS.find(r => r.id === id) || REPLY_SPEEDS[0]; }
+
+  /* Channels of a shift. 'mixed' adds phone calls (engine startDay o.calls): a call rings while
+     you handle the chats, and it counts in the score like any other conversation.
+     Chats only is the shift as it always was. */
+  const MODES = [
+    { id: 'chat', label: 'Chats only', blurb: 'Every customer writes to you in the inbox' },
+    { id: 'mixed', label: 'Chats + calls', blurb: 'Phone calls ring while you handle your chats' }
+  ];
+  function mode(id) { return MODES.find(m => m.id === id) || MODES[0]; }
 
   const uniqSorted = list => Array.from(new Set(list)).sort((a, b) => a - b);
   const scenariosOf = (data, n) => data.scenarios.filter(s => s.day === n).sort((a, b) => a.arrive - b.arrive);
@@ -116,6 +125,7 @@
     const customers = cfg && cfg.customers != null ? cfg.customers : null;
     if (customers !== null && !(Number.isInteger(customers) && customers >= 1)) errors.push('The number of customers must be 1 or more.');
     if (cfg && cfg.reply != null && !REPLY_SPEEDS.some(r => r.id === cfg.reply)) errors.push('Choose a reply speed.');
+    if (cfg && cfg.mode != null && !MODES.some(m => m.id === cfg.mode)) errors.push('Choose chats only or chats and calls.');
     const scenarios = days.reduce((s, n) => s + customersFor(data, n, Number.isInteger(customers) ? customers : null), 0);
     return { ok: errors.length === 0, errors, days, scenarios };
   }
@@ -157,7 +167,7 @@
       });
     }
     const reasons = practiceReasons(cfg.difficulty, Object.keys(picks).length > 0, reply);
-    return {
+    const out = {
       id: opts.id || 's' + seed.toString(36),
       createdAt: opts.now || new Date().toISOString(),
       difficulty: difficulty(cfg.difficulty).id,
@@ -170,6 +180,9 @@
       results: {},
       endedEarly: false
     };
+    // Only "Chats + calls" sessions carry a mode: a chats-only session stays exactly as before
+    if (mode(cfg.mode).id === 'mixed') out.mode = 'mixed';
+    return out;
   }
 
   /** Practice sessions don't unlock days or change best scores (older saved sessions: Easy only). */
@@ -191,6 +204,7 @@
     if (rs.mult != null) pace.reply = rs.mult;
     const out = { pace, seed: daySeed(session, n) };
     if (session.picks && session.picks[n]) out.scenarios = session.picks[n].slice();
+    if (session.mode === 'mixed') out.calls = true;
     return out;
   }
 
@@ -202,20 +216,22 @@
 
   /** A compact copy of an engine day report (no references to the scenario objects). */
   function dayResult(rep) {
-    return {
+    const out = {
       n: rep.day.n, title: rep.day.title, level: rep.day.level,
       score: rep.score, stars: rep.stars, passed: rep.passed,
       customers: rep.n, resolved: rep.resolved, abandoned: rep.abandoned,
       avgCsat: rep.avgCsat, acc: rep.acc, wrap: rep.wrap, frt: rep.frt, art: rep.art, duration: rep.duration,
-      convs: rep.convs.map(c => ({
+      convs: rep.convs.map(c => Object.assign({
         id: c.id, first: c.sc.customer.first, last: c.sc.customer.last, photo: c.sc.customer.photo || null,
         topic: c.sc.topic, policies: (c.sc.policies || []).slice(),
         outcome: c.outcome, csat: c.csat, accuracy: c.accuracy,
         firstResponse: c.firstResponse, responseTimes: c.responseTimes.slice(),
         disposition: c.disposition, dispOk: c.dispOk, correctDisp: c.correctDisp.slice(),
         decisions: c.decisions.map(d => ({ prompt: d.prompt, chosen: d.chosen, q: d.q, fb: d.fb, best: d.best, rt: d.rt }))
-      }))
+      }, c.call ? { call: true, answerTime: c.answerTime == null ? null : c.answerTime, holds: c.holds || 0 } : null))
     };
+    if (rep.calls) out.calls = Object.assign({}, rep.calls);
+    return out;
   }
 
   /** Stores the result of a day (a retry replaces the earlier attempt). */
@@ -264,6 +280,17 @@
       art: mean([].concat.apply([], convs.map(c => c.responseTimes))),
       duration: done.reduce((s, r) => s + r.duration, 0)
     };
+    // Phone calls ("Chats + calls" sessions only)
+    const calls = convs.filter(c => c.call);
+    if (calls.length) {
+      const answered = calls.filter(c => c.answerTime != null);
+      k.calls = {
+        n: calls.length, answered: answered.length,
+        missed: calls.filter(c => c.outcome === 'missed').length,
+        hungUp: calls.filter(c => c.outcome === 'abandoned').length,
+        avgAnswer: mean(answered.map(c => c.answerTime))
+      };
+    }
 
     // Reply quality in the cases tagged with each policy (a case can have several)
     const pol = {};
@@ -286,6 +313,13 @@
       else {
         improve.push({ title: 'Customers who left', detail: k.abandoned + ' of ' + convs.length + ' customers ran out of patience and left.' });
         tips.push({ title: 'Answer the longest wait first', detail: 'Sort the inbox by Waiting and watch the patience rings. A quick, accurate first reply buys time.' });
+      }
+      if (k.calls) {
+        if (k.calls.missed === 0) strengths.push({ title: 'Every call answered', detail: k.calls.n + ' of ' + k.calls.n + ' calls picked up' + (k.calls.avgAnswer != null ? ', after ' + secs(k.calls.avgAnswer) + ' on average.' : '.') });
+        else {
+          improve.push({ title: 'Missed calls', detail: k.calls.missed + ' of ' + k.calls.n + ' calls rang out before you answered.' });
+          tips.push({ title: 'Pick up within 20 seconds', detail: 'A call rings five times, then the caller hangs up. Answer first, then put the caller on hold if you need a moment.' });
+        }
       }
       if (k.unresolved > 0) {
         improve.push({ title: 'Unresolved chats', detail: k.unresolved + ' chat' + (k.unresolved === 1 ? '' : 's') + ' ended without a resolution.' });
@@ -319,9 +353,10 @@
         reply: replySpeed(session.reply).id, replyLabel: replySpeed(session.reply).label,
         practice, practiceReasons: session.practiceReasons ? session.practiceReasons.slice() : (practice ? ['Easy difficulty'] : [])
       },
+      mode: session.mode === 'mixed' ? 'mixed' : 'chat',
       days: session.days.map(n => { const d = data.days.find(x => x.n === n); return { n, title: d.title, level: d.level, played: !!session.results[n] }; }),
       plannedDays: session.days.length, completedDays: done.length,
-      plannedScenarios, completedScenarios: convs.length,
+      plannedScenarios, completedScenarios: convs.filter(c => !c.call).length,   // chat customers; calls are in kpis.calls
       totalScore, maxScore, percent: maxScore ? totalScore / maxScore : null,
       passScore: PASS_SCORE, status,
       perDay: done.map(r => ({ n: r.n, title: r.title, level: r.level, score: r.score, stars: r.stars, passed: r.passed, customers: r.customers, resolved: r.resolved, abandoned: r.abandoned, avgCsat: r.avgCsat, acc: r.acc, wrap: r.wrap })),
@@ -331,8 +366,8 @@
   }
 
   const api = {
-    PASS_SCORE, DIFFICULTIES, DEFAULT_DIFFICULTY, INSIGHT, REPLY_SPEEDS, DEFAULT_SETTINGS,
-    difficulty, replySpeed, practiceReasons, configPractice, isPractice, validateConfig, createSession,
+    PASS_SCORE, DIFFICULTIES, DEFAULT_DIFFICULTY, INSIGHT, REPLY_SPEEDS, DEFAULT_SETTINGS, MODES,
+    difficulty, replySpeed, mode, practiceReasons, configPractice, isPractice, validateConfig, createSession,
     daySeed, startOptions, nextDay, dayResult, recordDay, buildReport
   };
   if (root && root.SR) root.SR.session = api;

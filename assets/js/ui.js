@@ -15,12 +15,14 @@
   function loadStore() {
     try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
   }
-  const store = Object.assign({ agentName: 'Alex Morgan', coach: true, sound: true, intro: true, theme: 'light', unlockAll: false, difficulty: SS.DEFAULT_DIFFICULTY, customers: null, reply: 'auto', progress: {} }, loadStore());
+  const store = Object.assign({ agentName: 'Alex Morgan', coach: true, sound: true, intro: true, theme: 'light', unlockAll: false, difficulty: SS.DEFAULT_DIFFICULTY, customers: null, reply: 'auto', mode: 'chat', progress: {} }, loadStore());
   if (!store.progress || typeof store.progress !== 'object') store.progress = {};
   if (!SS.DIFFICULTIES.some(d => d.id === store.difficulty)) store.difficulty = SS.DEFAULT_DIFFICULTY;
   // Shift settings (the gear): customers per shift (null = all of the day) and how fast customers reply
   if (!(Number.isInteger(store.customers) && store.customers >= 1)) store.customers = null;
   if (!SS.REPLY_SPEEDS.some(r => r.id === store.reply)) store.reply = 'auto';
+  // Chats only, or chats + phone calls
+  if (!SS.MODES.some(m => m.id === store.mode)) store.mode = 'chat';
   function saveStore() {
     try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* storage unavailable */ }
   }
@@ -151,7 +153,8 @@
     web: { label: 'Web chat', icon: 'globe' },
     app: { label: 'Mobile app', icon: 'smartphone' },
     whatsapp: { label: 'WhatsApp', icon: 'whatsapp' },
-    messenger: { label: 'Messenger', icon: 'messenger' }
+    messenger: { label: 'Messenger', icon: 'messenger' },
+    phone: { label: 'Phone call', icon: 'phone' }
   };
   const Q = {
     3: { label: 'Excellent', icon: 'checkCircle' },
@@ -162,8 +165,15 @@
   const OUTCOMES = {
     resolved: { label: 'Resolved', icon: 'checkCircle', tone: 'success' },
     unresolved: { label: 'Unresolved', icon: 'xCircle', tone: 'danger' },
-    abandoned: { label: 'Customer left', icon: 'logout', tone: 'danger' }
+    abandoned: { label: 'Customer left', icon: 'logout', tone: 'danger' },
+    missed: { label: 'Missed call', icon: 'phone', tone: 'danger' }
   };
+  const HUNG_UP = { label: 'Hung up', icon: 'logout', tone: 'danger' };
+  // How a conversation ended (a caller who runs out of patience hangs up)
+  function outcomeOf(c, outcome) {
+    const o = outcome || c.outcome;
+    return o === 'abandoned' && c.call ? HUNG_UP : OUTCOMES[o] || OUTCOMES.resolved;
+  }
   const DISP = {};
   D.dispositions.forEach(d => { DISP[d.id] = d; });
 
@@ -270,6 +280,7 @@
   function renderPlatformIntro() {
     const P = ui.platform;
     ui.view = 'platform';
+    stopVoice();
     document.title = P.title + ' · ShiftReady';
     const diff = SS.difficulty(P.cfg.difficulty);
     const days = P.cfg.days.map(n => { const d = D.days.find(x => x.n === n); return 'Day ' + n + ' · ' + d.title; });
@@ -297,6 +308,8 @@
     document.title = 'ShiftReady · Support Chat Simulator';
     if (!isUnlocked(ui.day)) ui.day = firstAvailableDay();
     stopHowto(true);
+    stopVoice();
+    callsOff();
 
     app.innerHTML =
       '<div class="lobby' + (SR.trainChat ? ' has-tc' : '') + '">' +
@@ -434,7 +447,7 @@
         '<label class="field"><span>Your agent name</span><input id="agentName" value="' + esc(store.agentName) + '" maxlength="28" autocomplete="off" spellcheck="false"></label>' +
         '<div class="toggles">' +
           toggleHTML('coach', 'Coach notes', 'Feedback after each reply', store.coach) +
-          toggleHTML('sound', 'Sound', 'Button sounds, alerts and the welcome voice', store.sound) +
+          toggleHTML('sound', 'Sound', 'Button sounds, alerts, voices and phone calls', store.sound) +
           toggleHTML('dark', 'Dark mode', 'Easier on the eyes', store.theme === 'dark') +
           toggleHTML('intro', 'Welcome screen', 'Show it when the app opens', store.intro !== false) +
         '</div>' +
@@ -446,9 +459,9 @@
   /* ---------- shift settings (the gear) ---------- */
   const dayCount = n => D.scenarios.filter(s => s.day === n).length;
   // What the next shift uses: picked in the gear panel, kept in this browser
-  function shiftSettings() { return { difficulty: store.difficulty, customers: store.customers, reply: store.reply }; }
+  function shiftSettings() { return { difficulty: store.difficulty, customers: store.customers, reply: store.reply, mode: store.mode }; }
   // (the multi-day setup picks its own difficulty, so there only customers and replies matter)
-  const isDefaultSettings = () => store.customers == null && store.reply === SS.DEFAULT_SETTINGS.reply &&
+  const isDefaultSettings = () => store.customers == null && store.reply === SS.DEFAULT_SETTINGS.reply && store.mode === SS.DEFAULT_SETTINGS.mode &&
     (ui.view === 'setup' || store.difficulty === SS.DEFAULT_SETTINGS.difficulty);
   // Customers a day will have with the current setting
   const shiftCustomers = n => Math.min(dayCount(n), store.customers || Infinity);
@@ -471,6 +484,7 @@
         '<span class="qs-chip diff-' + d.id + '">' + esc(d.label) + '</span>' +
         '<span class="qs-chip">' + (k < all ? k + ' of ' + all : 'All ' + all) + ' customers</span>' +
         '<span class="qs-chip">' + esc(r.label) + ' replies</span>' +
+        (store.mode === 'mixed' ? '<span class="qs-chip qs-calls">' + icon('phone', 12) + '+ Calls</span>' : '') +
         (isDefaultSettings() ? '<span class="qs-def">Default</span>' : '') +
       '</button>' +
       '<p class="quick-note">' + (why.length
@@ -496,6 +510,8 @@
         '<button class="icon-btn ss-x" data-act="resume" aria-label="Close">' + icon('x', 18) + '</button></div>' +
       '<div class="ss-sec"><div class="ss-h"><b>Customers</b><span id="ssCustB"></span></div>' +
         segHTML('ss-cust', custItems, cust, 'Customers') + '</div>' +
+      '<div class="ss-sec"><div class="ss-h"><b>Channels</b><span id="ssModeB"></span></div>' +
+        segHTML('ss-mode', SS.MODES, store.mode, 'Channels') + '</div>' +
       (inSetup ? '' : '<div class="ss-sec"><div class="ss-h"><b>Difficulty</b><span id="ssDiffB"></span></div>' +
         segHTML('ss-diff', SS.DIFFICULTIES, store.difficulty, 'Difficulty') + '</div>') +
       '<div class="ss-sec"><div class="ss-h"><b>How fast customers reply</b><span id="ssReplyB"></span></div>' +
@@ -515,12 +531,13 @@
     const mark = (act, v) => $$('[data-act="' + act + '"]', overlay).forEach(b => {
       const on = b.dataset.v === v; b.classList.toggle('on', on); b.setAttribute('aria-checked', on);
     });
-    mark('ss-cust', cust); mark('ss-diff', store.difficulty); mark('ss-reply', store.reply);
+    mark('ss-cust', cust); mark('ss-diff', store.difficulty); mark('ss-reply', store.reply); mark('ss-mode', store.mode);
     const set = (id, txt) => { const el = $('#' + id); if (el) el.textContent = txt; };
     const k = cust === 'all' ? all : Number(cust);
     set('ssCustB', cust === 'all' ? (inSetup ? 'Every customer of each day' : 'All ' + all + ' customers of the day')
       : (inSetup ? 'Up to ' + k + ' per day, picked at random' : k + ' of ' + all + ', picked at random'));
     set('ssDiffB', SS.difficulty(store.difficulty).blurb);
+    set('ssModeB', SS.mode(store.mode).blurb + (store.mode === 'mixed' ? ' · they count in the score' : ''));
     const r = SS.replySpeed(store.reply);
     set('ssReplyB', r.id === 'auto' ? 'Set by the difficulty (' + SS.difficulty(inSetup && ui.setup ? ui.setup.difficulty : store.difficulty).label + ')' : r.blurb);
     const days = inSetup && ui.setup ? ui.setup.days : [ui.day];
@@ -589,6 +606,7 @@
     ui.view = 'setup';
     clearToasts();
     stopHowto(true);
+    stopVoice();
     closeModal(true);
     endTour();
     if (!ui.setup) ui.setup = { days: isUnlocked(ui.day) ? [ui.day] : [], difficulty: store.difficulty };
@@ -664,7 +682,7 @@
   }
 
   // The multi-day setup uses its own days and difficulty plus the gear's customers and reply speed
-  function setupConfig() { return { days: ui.setup.days, difficulty: ui.setup.difficulty, customers: store.customers, reply: store.reply }; }
+  function setupConfig() { return { days: ui.setup.days, difficulty: ui.setup.difficulty, customers: store.customers, reply: store.reply, mode: store.mode }; }
   function setupSummaryHTML() {
     const cfg = setupConfig();
     const v = SS.validateConfig(cfg, { data: D, isUnlocked });
@@ -683,7 +701,7 @@
         '<div><b>' + esc(diff.label) + '</b><span>difficulty</span></div>' +
       '</div>' +
       '<button class="sum-set" data-act="shift-settings" aria-haspopup="dialog">' + icon('gear', 16) +
-        '<span><b>' + (store.customers ? 'Up to ' + store.customers + ' customers a day' : 'Every customer') + ' · ' + esc(r.label) + ' replies</b><small>Change in shift settings</small></span>' + icon('chevRight', 14) + '</button>' +
+        '<span><b>' + (store.customers ? 'Up to ' + store.customers + ' customers a day' : 'Every customer') + ' · ' + esc(r.label) + ' replies' + (store.mode === 'mixed' ? ' · with calls' : '') + '</b><small>Change in shift settings</small></span>' + icon('chevRight', 14) + '</button>' +
       (rows ? '<ol class="sum-days">' + rows + '</ol>' : '<p class="sum-empty">No days selected yet.</p>') +
       (v.ok ? '' : '<div class="alert" role="alert">' + icon('alert', 15) + '<div>' + v.errors.map(e => '<p>' + esc(e) + '</p>').join('') + '</div></div>') +
       (why.length && v.ok ? '<p class="sum-flow">' + icon('info', 13) + esc('Practice session (' + why.join(' · ') + '): results won’t unlock days or change best scores.') + '</p>' : '') +
@@ -713,6 +731,8 @@
   function startShift(n) {
     unlockAudio();
     stopHowto(true);
+    stopVoice();
+    callsOff();
     closeModal(true);
     ui.view = 'shift';
     ui.day = n;
@@ -731,6 +751,7 @@
     if (!ui.session || ui.session.days.indexOf(n) === -1) ui.session = newSession(Object.assign({ days: [n] }, shiftSettings()));
     if (ui.platform) ui.platform.current = { n, attempt: ui.session.attempts[n] || 0, actions: [] };
     E.startDay(n, SS.startOptions(ui.session, n));
+    if (E.st.convs.some(c => c.call)) preloadRing();
     renderWorkspace();
     updateRotate();
     if (n === 1) startTourWhenReady();   // Day 1: a short tour of the workspace
@@ -742,10 +763,10 @@
     return s;
   }
   // The settings a session was played with, to start another shift the same way
-  const settingsOf = s => ({ difficulty: s.difficulty, customers: s.customers || null, reply: s.reply || 'auto' });
+  const settingsOf = s => ({ difficulty: s.difficulty, customers: s.customers || null, reply: s.reply || 'auto', mode: s.mode || 'chat' });
   // From the setup screen, or a single day from the lobby. set: { difficulty, customers, reply }
   function startSession(days, set) {
-    const cfg = { days, difficulty: set.difficulty, customers: set.customers || null, reply: set.reply || 'auto' };
+    const cfg = { days, difficulty: set.difficulty, customers: set.customers || null, reply: set.reply || 'auto', mode: set.mode || 'chat' };
     const v = SS.validateConfig(cfg, { data: D, isUnlocked });
     if (!v.ok) return false;
     store.difficulty = cfg.difficulty;
@@ -779,7 +800,7 @@
               themeButton() +
               '<button class="icon-btn" data-act="sound" id="soundBtn" title="Sounds on/off">' + icon(store.sound ? 'volume' : 'mute', 18) + '</button>' +
               '<button class="btn btn-sm tb-pause" data-act="pause" aria-label="Pause">' + icon('pause', 13) + '<span>Pause</span></button>' +
-              '<div class="me">' + agentAvatar(32) + '<span class="me-dot"></span><div class="me-t"><b>' + esc(store.agentName) + '</b><span>Available</span></div></div>' +
+              '<div class="me">' + agentAvatar(32) + '<span class="me-dot"></span><div class="me-t"><b>' + esc(store.agentName) + '</b><span id="meStatus">Available</span></div></div>' +
             '</div>' +
           '</header>' +
           '<div class="workspace" id="workspace">' +
@@ -824,11 +845,13 @@
       d.label + ': ' + d.blurb,
       (k < all ? k + ' of ' + all : 'All ' + all) + ' customers',
       r.id === 'auto' ? 'Reply speed set by the difficulty' : r.label + ' replies',
+      s.mode === 'mixed' ? 'Chats + phone calls' : 'Chats only',
       SS.isPractice(s) ? 'Practice: doesn’t unlock days or change best scores' : 'Counts toward unlocking days and best scores'
     ];
     return '<span class="diff-chip diff-' + d.id + '" title="' + esc(tip.join(' · ')) + '">' + esc(d.label) +
       (SS.isPractice(s) && !d.practice ? '<span class="dct"> · Practice</span>' : '') +
-      (s.days.length > 1 ? '<span class="dct"> · ' + pos + ' of ' + s.days.length + '</span>' : '') + '</span>';
+      (s.days.length > 1 ? '<span class="dct"> · ' + pos + ' of ' + s.days.length + '</span>' : '') + '</span>' +
+      (s.mode === 'mixed' ? '<span class="diff-chip calls-chip" title="Phone calls ring during this shift">' + icon('phone', 12) + '<span class="dct">Calls</span></span>' : '');
   }
 
   function renderSortLabel() {
@@ -845,7 +868,8 @@
       '<div class="tb-stat"><span>Open</span><b>' + s.open + '</b></div>' +
       '<div class="tb-stat' + (s.waiting ? ' hot' : '') + '" title="Customers waiting for your reply"><span>Waiting</span><b>' + s.waiting + '</b></div>' +
       '<div class="tb-stat"><span>Closed</span><b>' + s.closed + '/' + s.total + '</b></div>' +
-      '<div class="tb-stat"><span>Avg CSAT</span><b>' + (s.csat == null ? '—' : s.csat.toFixed(1)) + '</b></div>';
+      '<div class="tb-stat"><span>Avg CSAT</span><b>' + (s.csat == null ? '—' : s.csat.toFixed(1)) + '</b></div>' +
+      (s.ringing != null ? '<div class="tb-stat' + (s.ringing ? ' hot ring' : '') + '" title="Phone calls ringing right now"><span>Ringing</span><b>' + s.ringing + '</b></div>' : '');
     if (host._html !== html) { host.innerHTML = html; host._html = html; }
   }
 
@@ -878,7 +902,7 @@
     const closed = arrived.filter(c => c.status === 'closed' && match(c));
     if (ui.sort === 'newest') open.sort((a, b) => b.arrivedAt - a.arrivedAt);
     else {
-      const rank = c => (c.status === 'agent' ? 0 : c.status === 'ended' ? 1 : 2);
+      const rank = c => (c.status === 'ringing' ? -1 : c.status === 'agent' ? 0 : c.status === 'ended' ? 1 : 2);
       open.sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? a.turnStart - b.turnStart : b.arrivedAt - a.arrivedAt));
     }
     closed.sort((a, b) => b.closedAt - a.closedAt);
@@ -932,7 +956,7 @@
       });
       listEls.set(c.id, el);
     }
-    const cls = 'ci st-' + c.status + (ui.active === c.id ? ' active' : '') + (c.unread ? ' unread' : '') + (el._enter ? ' ci-enter' : '');
+    const cls = 'ci st-' + c.status + (c.onHold ? ' on-hold' : '') + (ui.active === c.id ? ' active' : '') + (c.unread ? ' unread' : '') + (el._enter ? ' ci-enter' : '');
     if (el.className !== cls) el.className = cls;
     const html = itemBody(c);
     if (el._html !== html) { el._body.innerHTML = html; el._html = html; }
@@ -944,13 +968,16 @@
     const cu = c.sc.customer;
     const last = lastVisible(c);
     let prev;
-    if (c.typing) prev = '<span class="typing-txt">typing…</span>';
+    if (c.status === 'ringing') prev = '<span class="ring-txt">Incoming call…</span>';
+    else if (c.typing) prev = '<span class="typing-txt">' + (c.call ? 'speaking…' : 'typing…') + '</span>';
+    else if (c.onHold) prev = '<span class="muted">On hold</span>';
     else if (!last) prev = '<span class="muted">New conversation</span>';
     else prev = (last.from === 'agent' && !last.name ? '<span class="you">You: </span>' : '') + esc(previewText(last));
     let chip = '';
-    if (c.status === 'agent') chip = '<span class="wait-chip">' + icon('clock', 11) + '<span data-wait>' + fmtDur(E.st.clock - c.turnStart) + '</span></span>';
+    if (c.status === 'ringing') chip = '<span class="chip chip-ring">' + icon('phone', 11) + 'Answer</span>';
+    else if (c.status === 'agent') chip = '<span class="wait-chip' + (c.onHold ? ' hold' : '') + '">' + icon(c.onHold ? 'pause' : 'clock', 11) + '<span data-wait>' + fmtDur(E.st.clock - c.turnStart) + '</span></span>';
     else if (c.status === 'ended') chip = '<span class="chip chip-amber">' + icon('file', 11) + 'Wrap-up</span>';
-    else if (c.status === 'closed') chip = c.outcome === 'resolved' ? '<span class="chip chip-ok">' + icon('check', 11) + 'Resolved</span>' : '<span class="chip chip-bad">' + icon('x', 11) + OUTCOMES[c.outcome].label + '</span>';
+    else if (c.status === 'closed') chip = c.outcome === 'resolved' ? '<span class="chip chip-ok">' + icon('check', 11) + 'Resolved</span>' : '<span class="chip chip-bad">' + icon('x', 11) + outcomeOf(c).label + '</span>';
     const badge = c.unread ? '<span class="badge">' + c.unread + '</span>' : '';
     return '<div class="ci-top"><span class="ci-name">' + esc(cu.first + ' ' + cu.last) + '</span><span class="ci-time">' + relTime(c.lastAt) + '</span></div>' +
       '<div class="ci-prev">' + prev + '</div>' +
@@ -1014,11 +1041,13 @@
         '<div class="ce-keys"><span><kbd>1</kbd>–<kbd>4</kbd> choose reply</span><span><kbd>Enter</kbd> send</span><span><kbd>Alt</kbd>+<kbd>↓</kbd> next chat</span></div></div>';
       return;
     }
-    host.className = 'chat';
+    host.className = 'chat' + (c.call ? ' is-call' : '');
     host.innerHTML = '<header class="chat-h" id="chatHead"></header>' +
+      (c.call ? '<div class="call-bar" id="callBar"></div>' : '') +
       '<div class="msgs" id="msgs"><div id="msgsIn"></div><div class="typing-row" id="typingRow"></div></div>' +
       '<div class="composer" id="composer"></div>';
     renderHeader(c);
+    renderCallBar(c);
     renderMessages(c);
     renderTyping(c);
     renderComposer(c, false);
@@ -1044,7 +1073,34 @@
     updateHeaderLive(c);
   }
 
+  // The strip under a call's header: on call / on hold, call length and the Hold button
+  function renderCallBar(c) {
+    const bar = $('#callBar');
+    if (!bar || !c.call) return;
+    let html;
+    if (c.status === 'ringing') html = '<span class="cb-state ring">' + icon('phone', 14) + 'Ringing</span><span class="cb-sub">Answer before it stops ringing</span>';
+    else if (c.status === 'ended' || c.status === 'closed' || c.answeredAt == null) {
+      html = '<span class="cb-state off">' + icon('phone', 14) + (c.outcome === 'missed' ? 'Missed call' : 'Call ended') + '</span>' +
+        (c.answeredAt != null && c.endedAt != null ? '<span class="cb-sub">Call length ' + fmtDur(c.endedAt - c.answeredAt) + '</span>' : '');
+    } else {
+      const canHold = c.status === 'agent';
+      html = '<span class="cb-state ' + (c.onHold ? 'hold' : 'live') + '"><i class="cb-dot"></i>' + (c.onHold ? 'On hold' : 'On call') + '</span>' +
+        '<span class="cb-time" id="callTime" title="Call length">' + fmtDur(E.st.clock - c.answeredAt) + '</span><span class="cb-sp"></span>' +
+        '<button class="btn btn-sm cb-hold' + (c.onHold ? ' on' : '') + '" data-act="hold"' + (canHold ? '' : ' disabled') +
+          ' title="' + (canHold ? (c.onHold ? 'Take the caller off hold (H)' : 'Put the caller on hold while you check something (H)') : 'You can put the caller on hold when it’s your turn to speak') + '">' +
+          icon(c.onHold ? 'play' : 'pause', 13) + (c.onHold ? 'Resume call' : 'Hold') + '</button>';
+    }
+    if (bar._html !== html) { bar.innerHTML = html; bar._html = html; }
+    const state = c.status === 'ringing' ? 'ring' : c.answeredAt == null || c.status === 'ended' || c.status === 'closed' ? 'off' : c.onHold ? 'hold' : 'live';
+    if (bar.dataset.state !== state) bar.dataset.state = state;
+  }
+
   function updateHeaderLive(c) {
+    const ct = $('#callTime');
+    if (ct && c.call && c.answeredAt != null && E.st) {
+      const v = fmtDur(E.st.clock - c.answeredAt);
+      if (ct.textContent !== v) ct.textContent = v;
+    }
     const m = $('#mood');
     if (!m) return;
     const live = c.status !== 'ended' && c.status !== 'closed';
@@ -1054,7 +1110,7 @@
     if (m.dataset.mood !== key) {
       m.dataset.mood = key;
       $('.mood-ic', m).innerHTML = icon(live ? md.icon : 'meh', 15);
-      $('.mood-v', m).textContent = live ? md.label : (c.outcome === 'abandoned' ? 'Left' : 'Done');
+      $('.mood-v', m).textContent = live ? md.label : c.outcome === 'missed' ? 'Missed' : c.outcome === 'abandoned' ? (c.call ? 'Hung up' : 'Left') : 'Done';
     }
     const w = (live ? p : 0) + '%';
     const bar = $('.meter i', m);
@@ -1062,7 +1118,14 @@
     const stl = $('#chhStatus');
     if (stl) {
       let t;
-      if (c.status === 'agent') t = 'Waiting · ' + fmtDur(E.st.clock - c.turnStart);
+      if (c.call) {
+        if (c.status === 'ringing') t = 'Ringing…';
+        else if (c.status === 'agent') t = (c.onHold ? 'On hold · ' : 'Waiting for you · ') + fmtDur(E.st.clock - c.turnStart);
+        else if (c.status === 'customer') t = c.typing ? 'speaking…' : 'on the line';
+        else if (c.status === 'ended') t = 'Call ended · wrap-up';
+        else t = 'Closed';
+      }
+      else if (c.status === 'agent') t = 'Waiting · ' + fmtDur(E.st.clock - c.turnStart);
       else if (c.status === 'customer') t = c.typing ? 'typing…' : 'online';
       else if (c.status === 'ended') t = 'Chat ended · wrap-up';
       else t = 'Closed';
@@ -1116,9 +1179,10 @@
     else { who = store.agentName + ' (You)'; av = agentAvatar(30); }
     let body = '';
     if (m.attach) body += attachHTML(m.attach);
-    if (m.text) body += '<div class="bubble">' + fmtText(m.text) + '</div>';
+    // On a call the words were spoken: a small speaker marks what the caller said
+    if (m.text) body += '<div class="bubble' + (c.call ? ' said' : '') + '">' + (c.call && m.from === 'customer' ? icon('volume', 12, 'said-ic') : '') + fmtText(m.text) + '</div>';
     const meta = start ? '<div class="m-meta"><b>' + esc(who) + '</b><span>' + clockLabel(m.at) + '</span>' +
-      (m.from === 'agent' && !m.name ? '<span class="m-read" title="Seen">' + icon('checks', 14) + '</span>' : '') + '</div>' : '';
+      (m.from === 'agent' && !m.name && !c.call ? '<span class="m-read" title="Seen">' + icon('checks', 14) + '</span>' : '') + '</div>' : '';
     const cls = m.from === 'agent' ? 'm-agent' : m.from === 'bot' ? 'm-bot' : 'm-customer';
     return '<div class="m m-' + side + ' ' + cls + (start ? ' g-start' : '') + '"><div class="m-av">' + (start ? av : '') + '</div><div class="m-col">' + meta + body + '</div></div>';
   }
@@ -1130,9 +1194,9 @@
 
   function systemHTML(c, m) {
     if (m.kind === 'ended') {
-      const oc = OUTCOMES[m.outcome] || OUTCOMES.resolved;
+      const oc = outcomeOf(c, m.outcome);
       return '<div class="sys-card"><div class="sc-row"><span class="sc-ic oc-' + m.outcome + '">' + icon(oc.icon, 16) + '</span>' +
-        '<div><b>Chat ended · ' + oc.label + '</b><span>' + clockLabel(m.at) + ' · Satisfaction survey received</span></div>' +
+        '<div><b>' + (c.call ? 'Call ended · ' : 'Chat ended · ') + oc.label + '</b><span>' + clockLabel(m.at) + (m.outcome === 'missed' ? ' · Not answered' : ' · Satisfaction survey received') + '</span></div>' +
         '<div class="sc-csat"><span>CSAT</span>' + starsHTML(m.csat, 14) + '</div></div></div>';
     }
     if (m.kind === 'closed') {
@@ -1146,7 +1210,8 @@
       }
       return h;
     }
-    const ic = m.kind === 'left' ? 'logout' : m.kind === 'agent-ended' ? 'xCircle' : /transferred/i.test(m.text) ? 'users' : 'info';
+    const ic = m.kind === 'left' ? 'logout' : m.kind === 'agent-ended' ? 'xCircle' : /transferred/i.test(m.text) ? 'users'
+      : m.kind === 'call-start' || m.kind === 'ringing' || m.kind === 'missed' ? 'phone' : m.kind === 'hold' ? 'pause' : m.kind === 'resume' ? 'play' : 'info';
     return '<div class="sys"><span>' + icon(ic, 13) + ' ' + esc(m.text) + ' · ' + clockLabel(m.at) + '</span></div>';
   }
 
@@ -1171,7 +1236,9 @@
     if (c.typing) {
       if (!row.classList.contains('on')) {
         row.innerHTML = '<div class="m m-left m-customer g-start"><div class="m-av">' + avatarHTML(c.sc.customer, 30) + '</div><div class="m-col">' +
-          '<div class="bubble typing"><i></i><i></i><i></i></div><div class="typing-l">' + esc(c.sc.customer.first) + ' is typing…</div></div></div>';
+          (c.call
+            ? '<div class="bubble speaking" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="typing-l">' + esc(c.sc.customer.first) + ' is speaking…</div>'
+            : '<div class="bubble typing"><i></i><i></i><i></i></div><div class="typing-l">' + esc(c.sc.customer.first) + ' is typing…</div>') + '</div></div>';
         row.classList.add('on');
         const box = $('#msgs');
         if (box.scrollHeight - box.scrollTop - box.clientHeight < 220) scrollBottom();
@@ -1196,19 +1263,30 @@
     if (!host) return;
     const first = esc(c.sc.customer.first);
     let html;
-    if (c.status === 'agent') {
+    if (c.call && c.status === 'ringing') {
+      html = '<div class="cmp"><div class="call-ring">' +
+        '<div class="cc-av">' + avatarHTML(c.sc.customer, 48) + '<span class="cc-pulse"></span><span class="cc-pulse d2"></span></div>' +
+        '<div class="cr-t"><b>' + first + ' is calling</b><p>Answer before the phone stops ringing, or the call is missed. <span class="cr-left" id="ringLeft">' + ringLeftLabel(c) + '</span></p></div>' +
+        '<button class="btn btn-primary btn-lg cr-answer" data-act="answer" data-id="' + c.id + '">' + icon('phone', 16) + 'Answer</button>' +
+      '</div></div>';
+    } else if (c.status === 'agent') {
       const node = c.sc.nodes[c.node];
       html = '<div class="cmp">' +
-        '<div class="cmp-head"><div class="cmp-tabs"><span class="cmp-tab on">' + icon('chat', 14) + 'Reply</span><span class="cmp-sub">Choose the best response for ' + first + '</span></div>' +
+        '<div class="cmp-head"><div class="cmp-tabs"><span class="cmp-tab on">' + (c.call ? icon('headset', 14) + 'Say' : icon('chat', 14) + 'Reply') + '</span><span class="cmp-sub">' + (c.call ? 'Choose what to say to ' : 'Choose the best response for ') + first + '</span></div>' +
         '<div class="cmp-hint"><kbd>1</kbd>–<kbd>' + c.order.length + '</kbd> choose<span class="sep"></span><kbd>Enter</kbd> send<span class="sep"></span>' +
         '<span class="cmp-timer t-' + moodOf(c.patience).k + '" id="cmpTimer" title="Time this customer has been waiting on you">' + icon('timer', 13) + '<span>' + fmtDur(E.st.clock - c.turnStart) + '</span></span></div></div>' +
         '<div class="opts" role="listbox" aria-label="Choose a reply">' +
           c.order.map((i, k) => '<button class="opt' + (c.selected === i ? ' sel' : '') + '" style="--k:' + k + '" data-act="opt" data-i="' + i + '" role="option" aria-selected="' + (c.selected === i) + '">' +
             '<span class="opt-k">' + (k + 1) + '</span><span class="opt-t">' + esc(E.fill(node.o[i].t, c)) + '</span><span class="opt-check">' + icon('check', 15) + '</span></button>').join('') +
         '</div>' +
-        '<div class="cmp-foot"><span class="cmp-note">' + icon('info', 13) + 'Check the customer panel before answering — details matter.</span>' +
-        '<button class="btn btn-primary" data-act="send" id="sendBtn"' + (c.selected == null ? ' disabled' : '') + '>' + icon('send', 15) + 'Send</button></div>' +
+        '<div class="cmp-foot"><span class="cmp-note">' + icon('info', 13) + (!c.call ? 'Check the customer panel before answering — details matter.'
+          : c.onHold ? first + ' is on hold. Saying something takes them off hold.' : first + ' is waiting on the line. Need a moment to check? Put them on hold.') + '</span>' +
+        '<button class="btn btn-primary" data-act="send" id="sendBtn"' + (c.selected == null ? ' disabled' : '') + '>' + (c.call ? icon('phone', 15) + 'Say it' : icon('send', 15) + 'Send') + '</button></div>' +
       '</div>';
+    } else if (c.call && c.status === 'customer') {
+      html = '<div class="cmp"><div class="cmp-wait"><div class="cw-ic">' + (c.typing ? '<span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>' : icon('headset', 18)) + '</div>' +
+        '<div class="cw-t"><b>' + (c.typing ? first + ' is speaking…' : 'On the line with ' + first) + '</b>' +
+        '<p>Listen, then choose what to say. Callers answer right away — your chats keep waiting meanwhile.</p></div></div></div>';
     } else if (c.status === 'customer' || c.status === 'pending') {
       const replied = c.lastSentAt != null;
       const pace = paceLabel(E.replyIn(c));
@@ -1218,18 +1296,18 @@
         (replied ? '<div class="cw-timer" title="Time since your last reply"><span>Your last reply</span><b id="custWait">' + fmtDur(E.st.clock - c.lastSentAt) + ' ago</b></div>' : '') +
       '</div></div>';
     } else if (c.status === 'ended') {
-      const oc = OUTCOMES[c.outcome];
+      const oc = outcomeOf(c);
       const sel = ui.wrapSel[c.id];
       html = '<div class="cmp">' +
         '<div class="wrap-h"><div><b>' + icon('file', 15) + 'Wrap-up</b><span class="sub">Choose the resolution code that best describes this conversation.</span></div>' +
         '<div class="wrap-res"><span class="pill pill-' + oc.tone + '">' + icon(oc.icon, 12) + oc.label + '</span><span class="wrap-csat">CSAT ' + starsHTML(c.csat, 13) + '</span></div></div>' +
         '<div class="codes" role="radiogroup" aria-label="Resolution code">' + D.dispositions.map((d, k) =>
           '<button class="code' + (sel === d.id ? ' sel' : '') + '" style="--k:' + k + '" data-act="code" data-code="' + d.id + '" role="radio" aria-checked="' + (sel === d.id) + '">' + esc(d.label) + '</button>').join('') + '</div>' +
-        '<div class="cmp-foot"><span class="cmp-note">' + icon('info', 13) + 'After-chat work: pick a code, then close the conversation.</span>' +
-        '<button class="btn btn-primary" data-act="close-conv" id="closeBtn"' + (sel ? '' : ' disabled') + '>' + icon('check', 15) + 'Close conversation</button></div>' +
+        '<div class="cmp-foot"><span class="cmp-note">' + icon('info', 13) + (c.call ? 'After-call work: pick a code, then close the call.' : 'After-chat work: pick a code, then close the conversation.') + '</span>' +
+        '<button class="btn btn-primary" data-act="close-conv" id="closeBtn"' + (sel ? '' : ' disabled') + '>' + icon('check', 15) + (c.call ? 'Close call' : 'Close conversation') + '</button></div>' +
       '</div>';
     } else {
-      const oc = OUTCOMES[c.outcome];
+      const oc = outcomeOf(c);
       const d = DISP[c.disposition];
       html = '<div class="cmp"><div class="closed-sum">' +
         '<div class="cs-item"><span>Outcome</span><b class="tone-' + oc.tone + '">' + icon(oc.icon, 14) + oc.label + '</b></div>' +
@@ -1402,7 +1480,7 @@
       kv('Lifetime value', '<b>' + esc(cu.ltv) + '</b><span class="ago">' + cu.orders + ' order' + (cu.orders === 1 ? '' : 's') + '</span>') +
       kv('Membership', esc(cu.plan)) +
       kv('Channel', CH[sc.channel].label + '<span class="ago">Ticket #' + c.ticket + ' · Priority ' + esc(sc.priority) + '</span>') +
-      kv('Customer type', esc(c.persona.label) + '<span class="ago">Replies: ' + paceShort(E.replyIn(c)) + '</span>') +
+      kv('Customer type', esc(c.persona.label) + '<span class="ago">' + (c.call ? 'On the phone · answers right away' : 'Replies: ' + paceShort(E.replyIn(c))) + '</span>') +
       (cu.tags && cu.tags.length ? kv('Tags', cu.tags.map(t => '<span class="tag">' + esc(t) + '</span>').join(' ')) : '');
   }
 
@@ -1645,6 +1723,8 @@
           keyRow('Send immediately', 'Double-click a reply') +
           keyRow('Next / previous conversation', '<kbd>Alt</kbd><kbd>↓</kbd> <kbd>Alt</kbd><kbd>↑</kbd>') +
           keyRow('Close conversation after wrap-up', '<kbd>Enter</kbd>') +
+          keyRow('Answer a ringing call', '<kbd>A</kbd>') +
+          keyRow('Hold / resume a call', '<kbd>H</kbd>') +
           keyRow('Search the knowledge base', '<kbd>K</kbd>') +
           keyRow('Pause the shift', '<kbd>P</kbd>') +
           keyRow('Close panels', '<kbd>Esc</kbd>') +
@@ -1653,7 +1733,7 @@
       html = '<div class="modal"><div class="md-ic">' + icon('sliders', 22) + '</div><h3>Settings</h3><p>The shift is paused while you change settings.</p>' +
         '<div class="md-toggles">' +
           coachToggleHTML('Show a feedback note under each reply you send') +
-          toggleHTML('sound', 'Sound', 'Button sounds, notifications and the welcome voice', store.sound) +
+          toggleHTML('sound', 'Sound', 'Button sounds, notifications, voices and phone calls', store.sound) +
           toggleHTML('dark', 'Dark mode', 'Dark colors for the whole simulator', store.theme === 'dark') +
           toggleHTML('intro', 'Welcome screen', 'Show the welcome message and logo when the app opens', store.intro !== false) +
         '</div><div class="md-actions"><button class="btn btn-primary" data-act="resume">Done</button></div></div>';
@@ -1723,15 +1803,16 @@
   function alarm(c, kind) {
     if (ui.view !== 'shift' || !E.st) return;
     const cu = c.sc.customer;
-    const left = kind === 'left';
-    const title = left ? cu.first + ' left the chat!' : cu.first + ' is getting angry!';
-    const body = left
-      ? 'They waited too long and gave up. Complete the wrap-up.'
-      : cu.first + ' ' + cu.last + ' has been waiting ' + fmtDur(E.st.clock - c.turnStart) + ' for your reply. Answer now!';
+    const missed = kind === 'missed';
+    const left = kind === 'left' || missed;
+    const title = missed ? 'Missed call from ' + cu.first + '!' : left ? cu.first + (c.call ? ' hung up!' : ' left the chat!') : cu.first + ' is getting angry!';
+    const body = missed ? 'The phone rang out before you answered. Complete the wrap-up.'
+      : left ? (c.call ? 'They waited too long on the line. Complete the wrap-up.' : 'They waited too long and gave up. Complete the wrap-up.')
+      : cu.first + ' ' + cu.last + ' has been waiting ' + fmtDur(E.st.clock - c.turnStart) + (c.call ? (c.onHold ? ' on hold.' : ' on the line.') + ' Say something now!' : ' for your reply. Answer now!');
     $('.alarm-card', alarmEl).innerHTML =
-      '<span class="alarm-ic">' + icon(left ? 'logout' : 'angry', 22) + '</span>' +
+      '<span class="alarm-ic">' + icon(missed ? 'phone' : left ? 'logout' : 'angry', 22) + '</span>' +
       '<div class="alarm-t"><b>' + esc(title) + '</b><span>' + esc(body) + '</span></div>' +
-      (ui.active !== c.id || (isPhone() && ui.mview !== 'chat') ? '<button class="btn btn-sm btn-danger" data-act="open-conv" data-id="' + c.id + '">Open chat</button>' : '');
+      (ui.active !== c.id || (isPhone() && ui.mview !== 'chat') ? '<button class="btn btn-sm btn-danger" data-act="open-conv" data-id="' + c.id + '">' + (c.call ? 'Open call' : 'Open chat') + '</button>' : '');
     alarmEl.classList.remove('on');
     void alarmEl.offsetWidth;
     alarmEl.classList.add('on');
@@ -1838,7 +1919,7 @@
   const CLICKABLE = 'button, [role="button"], [data-act], a[href], label.tgl, input[type="checkbox"], .ci';
   const SOUND_BY_ACT = {
     opt: 'option',
-    send: 'send', 'close-conv': 'send', start: 'send', retry: 'send', next: 'send',
+    send: 'send', 'close-conv': 'send', start: 'send', retry: 'send', next: 'send', answer: 'send', hold: 'back',
     'confirm-exit': 'send', 'confirm-reset': 'send', 'replay-boot': 'send',
     kb: 'menu', settings: 'menu', shortcuts: 'menu', doc: 'menu', 'doc-tab': 'menu', 'toggle-details': 'menu',
     'm-chats': 'menu', 'open-conv': 'menu', sort: 'menu', 'toggle-closed': 'menu', 'rc-toggle': 'menu', howto: 'menu',
@@ -1863,6 +1944,145 @@
   // Phones only allow sound once a tap has finished
   document.addEventListener('click', () => unlockAudio(), true);
   document.addEventListener('touchend', () => unlockAudio(), { capture: true, passive: true });
+
+  /* ---------- recorded voices (assets/audio): the Day 1 tour and the end-of-shift coach ----------
+     They play on their own, with no button; the Sound setting turns them off. */
+  const AUDIO_V = '20261028-1';
+  const audioUrl = name => 'assets/audio/' + name + '.mp3?v=' + AUDIO_V;
+  const voiceCache = {};
+  let voiceEl = null;
+  function voiceAudio(name) {
+    let a = voiceCache[name];
+    if (!a) { a = voiceCache[name] = new Audio(); a.preload = 'auto'; a.src = audioUrl(name); }
+    return a;
+  }
+  function preloadVoice(name) {
+    if (!name || !store.sound) return;
+    try { voiceAudio(name); } catch (e) { /* audio unavailable */ }
+  }
+  // onEnd also runs when the voice can't play (sound off, blocked), so the screen never waits for it
+  function playVoice(name, onEnd) {
+    stopVoice();
+    if (!name || !store.sound) { if (onEnd) onEnd(); return; }
+    let a;
+    try { a = voiceAudio(name); a.currentTime = 0; } catch (e) { if (onEnd) onEnd(); return; }
+    voiceEl = a;
+    const done = () => { if (voiceEl !== a) return; voiceEl = null; a.onended = null; if (onEnd) onEnd(); };
+    a.onended = done;
+    try { const pr = a.play(); if (pr && pr.catch) pr.catch(done); } catch (e) { done(); }
+  }
+  function stopVoice() {
+    const a = voiceEl;
+    if (!a) return;
+    voiceEl = null;
+    a.onended = null;
+    try { a.pause(); } catch (e) { /* ignore */ }
+  }
+
+  /* ---------- phone calls: ringtone, the callers' voices and the incoming-call card ---------- */
+  let ringEl = null;
+  function preloadRing() {
+    if (ringEl) return;
+    try { ringEl = new Audio(); ringEl.preload = 'auto'; ringEl.loop = true; ringEl.volume = 0.5; ringEl.src = audioUrl('ringtone'); } catch (e) { ringEl = null; return; }
+    // Phones only let a sound play later if it was started once inside a tap: start it silently now
+    // (this runs from the Start shift press) and stop it straight away
+    try {
+      ringEl.muted = true;
+      const pr = ringEl.play();
+      const reset = () => { if (!ringingCall()) { ringEl.pause(); ringEl.currentTime = 0; } ringEl.muted = false; };
+      if (pr && pr.then) pr.then(reset, () => { ringEl.muted = false; }); else reset();
+    } catch (e) { ringEl.muted = false; }
+  }
+  function ringingCall() { return ui.view === 'shift' && E.st ? E.st.convs.find(c => c.status === 'ringing') || null : null; }
+  // The ringtone plays while a call rings and the shift clock runs
+  function syncRing() {
+    const on = !!ringingCall() && store.sound && !E.st.paused && !E.st.ended;
+    if (on) {
+      preloadRing();
+      if (ringEl && ringEl.paused) {
+        try { ringEl.currentTime = 0; const pr = ringEl.play(); if (pr && pr.catch) pr.catch(() => { /* blocked until a tap */ }); } catch (e) { /* audio unavailable */ }
+      }
+    } else if (ringEl && !ringEl.paused) {
+      try { ringEl.pause(); } catch (e) { /* ignore */ }
+    }
+  }
+
+  // Each caller line is read aloud by the browser's own voice (free, nothing to download)
+  const speech = window.speechSynthesis || null;
+  const FEMALE_VOICE = /female|zira|aria|jenny|samantha|susan|hazel|libby|sonia|karen|moira|tessa|fiona|victoria|\bava\b|allison|emma|michelle|natasha|clara|joanna|salli|kendra|kimberly/i;
+  const MALE_VOICE = /\bmale|david|mark|guy|daniel|\balex\b|fred|ryan|george|james|thomas|rishi|aaron|christopher|eric|roger|andrew|brian|liam|matthew|joey|justin/i;
+  function callerVoice(cu) {
+    const all = speech.getVoices().filter(v => /^en([-_]|$)/i.test(v.lang));
+    if (!all.length) return null;
+    const female = /^women\//.test(cu.photo || '');
+    const want = female ? FEMALE_VOICE : MALE_VOICE, other = female ? MALE_VOICE : FEMALE_VOICE;
+    let pool = all.filter(v => want.test(v.name) && !other.test(v.name));
+    if (!pool.length) pool = all.filter(v => !other.test(v.name));
+    if (!pool.length) pool = all;
+    const us = pool.filter(v => /en[-_]US/i.test(v.lang));
+    if (us.length) pool = us;
+    return pool[hue(cu.first + ' ' + cu.last) % pool.length];   // the same caller always has the same voice
+  }
+  function speakLine(c, text) {
+    if (!speech || !store.sound || ui.view !== 'shift' || !E.st || E.st.paused) return;
+    try {
+      const u = new SpeechSynthesisUtterance(String(text));
+      const v = callerVoice(c.sc.customer);
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+      u.rate = 1.03;
+      u.pitch = 0.92 + (hue(c.sc.customer.last) % 17) / 100;
+      speech.speak(u);
+    } catch (e) { /* speech unavailable */ }
+  }
+  function hushCalls() { if (speech) { try { speech.cancel(); } catch (e) { /* ignore */ } } }
+  if (speech) { try { speech.getVoices(); } catch (e) { /* the list loads later */ } }
+
+  const callCardEl = document.createElement('div');
+  callCardEl.className = 'call-in';
+  document.body.appendChild(callCardEl);
+  function renderCallCard() {
+    const c = ringingCall();
+    if (!c) { callCardEl.classList.remove('on'); callCardEl._id = null; return; }
+    if (callCardEl._id !== c.id) {
+      callCardEl._id = c.id;
+      const cu = c.sc.customer;
+      callCardEl.innerHTML = '<div class="cc-card" role="alertdialog" aria-label="' + esc('Incoming call from ' + cu.first + ' ' + cu.last) + '">' +
+        '<div class="cc-av">' + avatarHTML(cu, 46) + '<span class="cc-pulse"></span><span class="cc-pulse d2"></span></div>' +
+        '<div class="cc-t"><span class="cc-k">' + icon('phone', 12) + 'Incoming call</span><b>' + esc(cu.first + ' ' + cu.last) + '</b><span>' + esc(c.sc.topic) + '</span></div>' +
+        '<button class="btn cc-answer" data-act="answer" data-id="' + c.id + '">' + icon('phone', 16) + 'Answer<kbd>A</kbd></button>' +
+        '<div class="cc-bar"><i></i></div></div>';
+    }
+    callCardEl.classList.add('on');
+    updateCallCard(c);
+  }
+  // How much ringing is left, on the card's bar and in the composer
+  function updateCallCard(c) {
+    if (!E.st) return;
+    const left = Math.max(0, 1 - (E.st.clock - c.arrivedAt) / E.RING_MS);
+    const bar = callCardEl.querySelector('.cc-bar i');
+    const v = 'scaleX(' + left.toFixed(3) + ')';
+    if (bar && bar.style.transform !== v) bar.style.transform = v;
+    const rl = $('#ringLeft');
+    if (rl && ui.active === c.id) { const t = ringLeftLabel(c); if (rl.textContent !== t) rl.textContent = t; }
+  }
+  function ringLeftLabel(c) { return Math.max(0, Math.ceil((E.RING_MS - (E.st.clock - c.arrivedAt)) / 1000)) + 's left'; }
+  function callsOff() {
+    if (ringEl && !ringEl.paused) { try { ringEl.pause(); } catch (e) { /* ignore */ } }
+    hushCalls();
+    callCardEl.classList.remove('on');
+    callCardEl._id = null;
+  }
+  function answerCall(id) {
+    const c = E.get(id);
+    if (!c || c.status !== 'ringing') return;
+    // The caller's first line is spoken a moment later: phones only allow it if speech starts inside this press
+    if (speech && store.sound) { try { speech.cancel(); speech.speak(new SpeechSynthesisUtterance('')); } catch (e) { /* speech unavailable */ } }
+    E.answer(id);
+    select(id, true);
+  }
+  function toggleHold(c) {
+    if (c && c.call && c.status === 'agent') E.hold(c.id, !c.onHold);
+  }
 
   /* ---------- "How to start": the voice guide, its words shown as they are spoken ----------
      Timed to assets/audio/how-to-start-voice.mp3: [from ms, to ms, words, highlight]. */
@@ -2076,15 +2296,16 @@
   }, 700);
 
   /* ---------- Day 1 tour: what each part of the workspace is for ----------
-     The rest of the screen is blurred while the part being explained stays sharp. The clock is paused. */
+     The rest of the screen is blurred while the part being explained stays sharp. The clock is paused.
+     Each step plays its recorded voice (assets/audio/tour-N.mp3) by itself; Continue moves on to the next one. */
   const TOUR = [
-    { title: 'Welcome to your first shift', text: 'You’re joining the chat support team at Lumen & Co. Here’s a quick look at your workspace. The clock is paused until you finish.' },
-    { target: '.inbox', title: 'Your chats', text: 'Every customer you’re helping appears here. The ring around each photo is their patience: it shrinks while they wait for your reply. Click a chat to open it.' },
-    { target: '.chat', title: 'The conversation', text: 'Read what the customer writes, then choose the best reply at the bottom and press Send. On a keyboard: 1–4 to choose, Enter to send.' },
-    { target: '#details', details: true, title: 'Customer file', text: 'Contact info, the order with its product photos, shipping, history and company policies. Open any card to read it, and check the facts before you answer.' },
-    { target: '.topbar', title: 'Your shift at a glance', text: 'How many chats are open, who is waiting on you, how many you’ve closed, and the shift clock. You can pause at any time.' },
-    { target: '.rail', title: 'Your tools', text: 'The knowledge base with every company policy, keyboard shortcuts, settings, and End shift.' },
-    { title: 'You’re ready!', text: 'When a conversation ends, choose the wrap-up code and close it. Customers get upset if they wait too long, so keep an eye on every chat. Good luck!' }
+    { voice: 'tour-1', title: 'Welcome to your first shift', text: 'You’re joining the chat support team at Lumen & Co. Here’s a quick look at your workspace. The clock is paused until you finish.' },
+    { voice: 'tour-2', target: '.inbox', title: 'Your chats', text: 'Every customer you’re helping appears here. The ring around each photo is their patience: it shrinks while they wait for your reply. Click a chat to open it.' },
+    { voice: 'tour-3', target: '.chat', title: 'The conversation', text: 'Read what the customer writes, then choose the best reply at the bottom and press Send. On a keyboard: 1–4 to choose, Enter to send.' },
+    { voice: 'tour-4', target: '#details', details: true, title: 'Customer file', text: 'Contact info, the order with its product photos, shipping, history and company policies. Open any card to read it, and check the facts before you answer.' },
+    { voice: 'tour-5', target: '.topbar', title: 'Your shift at a glance', text: 'How many chats are open, who is waiting on you, how many you’ve closed, and the shift clock. You can pause at any time.' },
+    { voice: 'tour-6', target: '.rail', title: 'Your tools', text: 'The knowledge base with every company policy, keyboard shortcuts, settings, and End shift.' },
+    { voice: 'tour-7', title: 'You’re ready!', text: 'When a conversation ends, choose the wrap-up code and close it. Customers get upset if they wait too long, so keep an eye on every chat. Good luck!' }
   ];
   let tour = null;
 
@@ -2144,6 +2365,9 @@
     if (tour.openedDetails) { toggleDetails(false); tour.openedDetails = false; }
     tour.i = i;
     const s = tour.steps[i];
+    // The step's recorded voice starts by itself; the next one loads meanwhile
+    playVoice(s.voice);
+    if (tour.steps[i + 1]) preloadVoice(tour.steps[i + 1].voice);
     const card = $('.tour-card', tour.el);
     $('.tour-count', card).textContent = 'Step ' + (i + 1) + ' of ' + tour.steps.length;
     $('#tourTitle', card).textContent = s.title;
@@ -2207,6 +2431,7 @@
     if (!tour) return;
     const t = tour;
     tour = null;
+    stopVoice();
     window.removeEventListener('keydown', tourKey, true);
     if (t.openedDetails) toggleDetails(false);
     t.el.classList.remove('on');
@@ -2258,11 +2483,42 @@
     if (c) updateHeaderLive(c);
     if (ui.doc) updateDocLive();
     renderStats();
+    const rc = ringingCall();
+    if (rc) updateCallCard(rc);
+    const me = $('#meStatus');
+    if (me) {
+      const v = st.convs.some(x => x.call && x.answeredAt != null && (x.status === 'agent' || x.status === 'customer')) ? 'On a call' : 'Available';
+      if (me.textContent !== v) me.textContent = v;
+    }
   }
 
   /* =========================================================
      REPORT
      ========================================================= */
+  // The coach's spoken message at the top of the report, chosen by the score (assets/audio/report-*.mp3)
+  const COACH_VOICE = {
+    good: { audio: 'report-good', text: 'Wow, what a shift! You kept your customers happy, picked the right answers, and closed every chat like a pro. Seriously, great job. You’re more than ready for the next challenge. Keep it up!' },
+    ok: { audio: 'report-ok', text: 'Nice work, you passed! You handled the shift well, but a few answers and wrap-up codes could be sharper. Take a look at the coaching notes below, they’ll show you exactly where to improve. A little practice, and you’ll nail it next time.' },
+    bad: { audio: 'report-bad', text: 'Hey… that was a tough one. It happens to everyone, don’t worry. Every mistake you made today is a lesson for tomorrow. Read the coaching notes below, check the policies, and give it another try. I know you can do this. Let’s go again!' }
+  };
+  const coachTone = score => (score >= 75 ? 'good' : score >= 60 ? 'ok' : 'bad');
+  function coachVoiceHTML(tone) {
+    return '<section class="rp-voice rv-' + tone + (store.sound ? ' speaking' : '') + '" id="rpVoice" aria-live="polite">' +
+      '<span class="rv-av">' + icon('headset', 20) + '</span>' +
+      '<div class="rv-b"><span class="rv-k">Your coach<span class="rv-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span></span>' +
+      '<p>' + esc(COACH_VOICE[tone].text) + '</p></div></section>';
+  }
+  function callsStripHTML(k) {
+    const stat = (label, value, cls) => '<div class="rpc-s"><small>' + esc(label) + '</small><b' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(value) + '</b></div>';
+    return '<section class="rp-calls">' +
+      '<div class="rpc-h"><span class="rpc-ic">' + icon('phone', 16) + '</span><div><b>Phone calls</b><span>They count in the score like chats</span></div></div>' +
+      stat('Answered', k.answered + ' / ' + k.n) +
+      stat('Missed', String(k.missed), k.missed ? 'tone-danger' : 'tone-success') +
+      stat('Avg. time to answer', secs(k.avgAnswer)) +
+      stat('Times on hold', String(k.holds)) +
+    '</section>';
+  }
+
   function showReport(rep) {
     const d = rep.day;
     const sess = ui.session;
@@ -2296,8 +2552,10 @@
     }
     ui.view = 'report';
     endTour();
+    callsOff();
     updateRotate();
     document.title = 'Shift report · Day ' + d.n + ' · ShiftReady';
+    const tone = coachTone(rep.score);
     const next = D.days.find(x => x.n === d.n + 1);
     const nextInSession = SS.nextDay(sess);
     const multi = sess.days.length > 1;
@@ -2345,6 +2603,7 @@
               (practice ? '<span class="pill pill-info">' + icon('sparkle', 12) + esc('Practice · ' + why.join(' · ')) + '</span>' : '') +
             '</div>' +
           '</section>' +
+          coachVoiceHTML(tone) +
           '<section class="kpis">' +
             kpi(0, 'users', 'Customers', rep.n, rep.resolved + ' resolved · ' + rep.abandoned + ' left') +
             kpi(1, 'smile', 'Avg. CSAT', rep.avgCsat.toFixed(1) + ' / 5', 'Customer satisfaction') +
@@ -2353,9 +2612,11 @@
             kpi(4, 'timer', 'Avg. response', secs(rep.art), 'Across all replies') +
             kpi(5, 'file', 'Wrap-up accuracy', pct(rep.wrap), 'Correct resolution codes') +
           '</section>' +
+          (rep.calls ? callsStripHTML(rep.calls) : '') +
           '<div class="sec-h"><h2>Conversation review</h2><span>Open a conversation to see every reply with coaching</span></div>' +
           '<section class="rp-convs">' + rep.convs.map((c, i) => convRow(c, i === firstIssue)).join('') + '</section>' +
-          '<p class="rp-formula">Score = 45% customer satisfaction · 30% reply quality · 15% resolution rate · 10% wrap-up accuracy &nbsp;·&nbsp; 60+ passes · 75+ ★★ · 90+ ★★★</p>' +
+          '<p class="rp-formula">Score = 45% customer satisfaction · 30% reply quality · 15% resolution rate · 10% wrap-up accuracy &nbsp;·&nbsp; 60+ passes · 75+ ★★ · 90+ ★★★' +
+            (rep.calls ? ' &nbsp;·&nbsp; Calls count like chats: a missed call scores like a customer who left' : '') + '</p>' +
         '</main>' +
       '</div>';
     window.scrollTo(0, 0);
@@ -2363,6 +2624,8 @@
       const fg = $('.score-ring .fg');
       if (fg) fg.style.strokeDashoffset = String(100 - rep.score);
     }));
+    // The coach speaks by itself as the report appears
+    playVoice(COACH_VOICE[tone].audio, () => { const v = $('#rpVoice'); if (v) v.classList.remove('speaking'); });
   }
 
   // label: optional caption under the number (a session shows its performance in %)
@@ -2379,23 +2642,23 @@
 
   // c: a live conversation (c.sc) or a stored one from a session (customer fields on c)
   function convRow(c, open) {
-    const oc = OUTCOMES[c.outcome] || OUTCOMES.resolved;
+    const oc = outcomeOf(c);
     const cu = c.sc ? c.sc.customer : c;
     const topic = c.sc ? c.sc.topic : c.topic;
     const chosen = DISP[c.disposition];
     const expected = c.correctDisp.map(id => DISP[id].label).join(' or ');
     return '<div class="rc' + (open ? ' open' : '') + '">' +
       '<button class="rc-h" data-act="rc-toggle" aria-expanded="' + !!open + '">' + avatarHTML(cu, 38) +
-        '<span class="rc-id"><b>' + esc(cu.first + ' ' + cu.last) + '</b><span>' + esc(topic) + '</span></span>' +
+        '<span class="rc-id"><b>' + esc(cu.first + ' ' + cu.last) + '</b><span>' + (c.call ? icon('phone', 11) + ' Call · ' : '') + esc(topic) + '</span></span>' +
         '<span class="pill pill-' + oc.tone + '">' + icon(oc.icon, 12) + oc.label + '</span>' +
         '<span class="rc-stat"><small>CSAT</small>' + starsHTML(c.csat, 12) + '</span>' +
         '<span class="rc-stat"><small>Quality</small><b>' + pct(c.accuracy) + '</b></span>' +
-        '<span class="rc-stat"><small>1st reply</small><b>' + secs(c.firstResponse) + '</b></span>' +
+        '<span class="rc-stat"><small>' + (c.call ? 'Answered in' : '1st reply') + '</small><b>' + secs(c.call ? c.answerTime : c.firstResponse) + '</b></span>' +
         '<span class="rc-stat"><small>Wrap-up</small><b class="' + (c.dispOk ? 'tone-success' : 'tone-danger') + '">' + icon(c.dispOk ? 'check' : 'x', 14) + (c.dispOk ? 'Correct' : 'Wrong') + '</b></span>' +
         '<span class="chev">' + icon('chevDown', 17) + '</span>' +
       '</button>' +
       '<div class="rc-bw"><div class="rc-bi"><div class="rc-b">' +
-        (c.decisions.length ? c.decisions.map(decHTML).join('') : '<p class="muted" style="margin-top:12px">No replies were sent in this conversation.</p>') +
+        (c.decisions.length ? c.decisions.map(decHTML).join('') : '<p class="muted" style="margin-top:12px">' + (c.outcome === 'missed' ? 'Missed call: nobody answered before the phone stopped ringing.' : 'No replies were sent in this conversation.') + '</p>') +
         '<div class="dec wrapdec"><span class="dec-n">' + icon('file', 13) + '</span><span>Wrap-up code: <b>' + esc(chosen ? chosen.label : '—') + '</b>' +
           (c.dispOk ? ' <span class="tone-success">— correct.</span>' : ' — expected <b>' + esc(expected) + '</b>.') + '</span></div>' +
       '</div></div></div></div>';
@@ -2430,6 +2693,8 @@
     clearToasts();
     ui.view = 'session';
     endTour();
+    stopVoice();
+    callsOff();
     updateRotate();
     document.title = 'Session report · ShiftReady';
     const pctNum = r.percent == null ? 0 : Math.round(r.percent * 100);
@@ -2492,7 +2757,9 @@
         kpi(4, 'smile', 'Avg. CSAT', k.avgCsat.toFixed(1) + ' / 5', 'Customer satisfaction') +
         kpi(5, 'file', 'Wrap-up accuracy', pctTxt(k.wrap), 'Correct resolution codes') +
         kpi(6, 'zap', 'First response', secs(k.frt), 'Avg. time to first reply') +
-        kpi(7, 'timer', 'Avg. response', secs(k.art), 'Across all replies') +
+        (k.calls
+          ? kpi(7, 'phone', 'Calls answered', k.calls.answered + ' / ' + k.calls.n, (k.calls.missed ? k.calls.missed + ' missed · ' : '') + 'avg ' + secs(k.calls.avgAnswer) + ' to answer')
+          : kpi(7, 'timer', 'Avg. response', secs(k.art), 'Across all replies')) +
       '</section>' +
       '<section class="sr-charts">' +
         '<div class="sr-card"><div class="ch-h"><h3>Score by day</h3><span>Pass mark ' + r.passScore + '</span></div>' +
@@ -2613,9 +2880,11 @@
       case 'ss-cust': store.customers = t.dataset.v === 'all' ? null : Number(t.dataset.v); saveStore(); refreshShiftSettings(); break;
       case 'ss-diff': store.difficulty = SS.difficulty(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
       case 'ss-reply': store.reply = SS.replySpeed(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
+      case 'ss-mode': store.mode = SS.mode(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
       case 'ss-defaults':
         store.customers = SS.DEFAULT_SETTINGS.customers;
         store.reply = SS.DEFAULT_SETTINGS.reply;
+        store.mode = SS.DEFAULT_SETTINGS.mode;
         if (ui.view !== 'setup') store.difficulty = SS.DEFAULT_SETTINGS.difficulty;
         saveStore(); refreshShiftSettings();
         { const done = $('.ss-actions .btn-primary', overlay); if (done) done.focus(); }
@@ -2640,7 +2909,9 @@
       case 'kb-close': closeKB(); break;
       case 'sort': ui.sort = ui.sort === 'newest' ? 'waiting' : 'newest'; renderSortLabel(); renderList(); break;
       case 'toggle-closed': ui.closedOpen = !ui.closedOpen; renderList(); break;
-      case 'sound': store.sound = !store.sound; saveStore(); updateSoundBtn(); if (store.sound) unlockAudio(); break;
+      case 'sound': store.sound = !store.sound; saveStore(); updateSoundBtn(); if (store.sound) unlockAudio(); else { stopVoice(); hushCalls(); } syncRing(); break;
+      case 'answer': answerCall(t.dataset.id); break;
+      case 'hold': toggleHold(c); break;
       case 'pause': openModal('pause'); break;
       case 'shortcuts': openModal('shortcuts'); break;
       case 'settings': openModal('settings'); break;
@@ -2714,7 +2985,7 @@
     if (key === 'dark') { store.theme = e.target.checked ? 'dark' : 'light'; saveStore(); applyTheme(); return; }
     store[key] = !!e.target.checked;
     saveStore();
-    if (key === 'sound') { updateSoundBtn(); if (store.sound) unlockAudio(); }
+    if (key === 'sound') { updateSoundBtn(); if (store.sound) unlockAudio(); else { stopVoice(); hushCalls(); } syncRing(); }
     if (key === 'coach' && ui.view === 'shift') { const c = activeConv(); if (c) { renderMessages(c); scrollBottom(true); } }
   });
 
@@ -2739,9 +3010,14 @@
     if (e.key === 'k' || e.key === 'K') { e.preventDefault(); navSound(); openKB(); return; }
     if (e.key === 'p' || e.key === 'P') { e.preventDefault(); sfx('back'); openModal('pause'); return; }
     if (e.key === '?') { navSound(); openModal('shortcuts'); return; }
+    if (e.key === 'a' || e.key === 'A') {
+      const r = ringingCall();
+      if (r) { e.preventDefault(); confirmSound(); answerCall(r.id); return; }
+    }
     if (ui.kb) return;
     const c = activeConv();
     if (!c) return;
+    if ((e.key === 'h' || e.key === 'H') && c.call && c.status === 'agent') { e.preventDefault(); sfx('back'); toggleHold(c); return; }
     if (c.status === 'agent') {
       if (/^[1-9]$/.test(e.key)) {
         const k = Number(e.key) - 1;
@@ -2785,6 +3061,29 @@
   }
 
   E.hooks = {
+    // A phone call starts ringing ("Chats + calls" shifts)
+    ring(c) {
+      if (ui.view !== 'shift') return;
+      renderList();
+      renderStats();
+      renderCallCard();
+      syncRing();
+      if (!ui.active) select(c.id);
+      updateTitle();
+    },
+    answer(c) {
+      if (ui.view !== 'shift') return;
+      renderCallCard();
+      syncRing();
+      if (ui.active === c.id) { renderCallBar(c); renderComposer(c); updateHeaderLive(c); }
+      renderList();
+      renderStats();
+    },
+    hold(c) {
+      if (ui.view !== 'shift') return;
+      if (ui.active === c.id) { renderCallBar(c); renderComposer(c); updateHeaderLive(c); }
+      renderList();
+    },
     arrive(c) {
       if (ui.view !== 'shift') return;
       renderList();
@@ -2797,6 +3096,7 @@
     },
     message(c, m) {
       if (ui.view !== 'shift') return;
+      if (c.call && m.from === 'customer' && m.spoken) speakLine(c, m.text);
       if (ui.active === c.id) {
         appendMessage(c, m);
         c.unread = 0;
@@ -2820,20 +3120,23 @@
     },
     status(c) {
       if (ui.view !== 'shift') return;
-      if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); renderTyping(c); }
+      if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); renderTyping(c); renderCallBar(c); }
+      if (c.call) { renderCallCard(); syncRing(); }
       renderList();
       renderStats();
     },
     turn(c) {
       if (ui.view !== 'shift') return;
-      if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); }
+      if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); renderCallBar(c); }
       renderList();
       renderStats();
     },
     end(c) {
       if (ui.view !== 'shift') return;
-      if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); renderTyping(c); }
+      if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); renderTyping(c); renderCallBar(c); }
       if (c.outcome === 'abandoned') alarm(c, 'left');
+      else if (c.outcome === 'missed') alarm(c, 'missed');
+      if (c.call) { renderCallCard(); syncRing(); }
       renderList();
       renderStats();
     },
@@ -2852,8 +3155,13 @@
     },
     angry(c) { alarm(c, 'angry'); },
     tick() { if (ui.view === 'shift') updateLive(); },
-    pause() { },
+    pause(paused) {
+      if (ui.view !== 'shift') return;
+      syncRing();
+      if (paused) hushCalls();
+    },
     dayEnd(rep) {
+      callsOff();
       sfx('success');
       toast({ title: 'All conversations closed', body: 'Preparing your shift report…', icon: 'checkCircle', tone: 'good', ms: 2000 });
       setTimeout(() => { if (ui.view === 'shift') showReport(rep); }, 1500);
