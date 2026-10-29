@@ -26,6 +26,16 @@
     too_long: 'La respuesta fue demasiado larga. Pide menos clientes por día.'
   };
   const TRAINING_KEY = 'shiftready.trainchat.training';
+  GEN_ERR.trial_used = 'Ya usaste tu prueba gratuita. Crea una cuenta (es gratis) para seguir generando entrenamientos.';
+  const SIGNUP_URL = 'app/#/signup';
+  // Session of the platform (app/), same site: lets signed-in people generate more than the free try
+  function sessionToken() {
+    try {
+      const s = JSON.parse(localStorage.getItem('sb-euusjtfndzlvxrpimwkq-auth-token'));
+      if (s && s.access_token && (!s.expires_at || s.expires_at * 1000 > Date.now() + 30000)) return s.access_token;
+    } catch (e) { /* none */ }
+    return null;
+  }
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ic = (n, s) => (SR.icon ? SR.icon(n, s || 16) : '');
@@ -119,14 +129,16 @@
       '<ul>' + d.cases.map(c => '<li>' + (c.hit ? '★ ' : '') + esc(c.topic) + ' <span>· ' + esc(c.who) + '</span></li>').join('') + '</ul>' +
       '<button type="button" class="tc-mini" data-tc="practice" data-day="' + d.real + '">' + ic('play', 13) + 'Practicar este día</button></div>').join('') +
       '<p class="tc-note">Propuesta con los casos reales del simulador. Para crear casos nuevos con tu prompt y tus documentos, usa la IA:</p>' +
-      '<button type="button" class="tc-send tc-gen" data-tc="generate"' + (busy ? ' disabled' : '') + '>' + ic('sparkle', 14) + 'Generar con IA (' + p.plan.length + ' día' + (p.plan.length === 1 ? '' : 's') + ')</button></div>';
+      '<button type="button" class="tc-send tc-gen" data-tc="generate"' + (busy ? ' disabled' : '') + '>' + ic('sparkle', 14) + (sessionToken() ? 'Generar con IA (' + p.plan.length + ' día' + (p.plan.length === 1 ? '' : 's') + ')' : 'Generar 1 día de prueba con IA') + '</button></div>';
   }
 
   /* ---------- real generation with Claude (server function) ---------- */
   let lastRequest = '';
   async function generate(p) {
     if (busy) return;
-    const n = Math.min(p.plan.length, 5);
+    const token = sessionToken();
+    const n = token ? Math.min(p.plan.length, 5) : 1;          // without an account: one free day
+    if (!token && p.plan.length > 1) S.msgs.push({ from: 'bot', text: 'Sin cuenta puedes probar gratis 1 día. Genero el día 1; para los ' + p.plan.length + ' días, crea una cuenta.' });
     const docs = files.filter(f => f.text).map(f => ({ name: f.name, text: f.text }));
     const pdfs = files.filter(f => f.pdf).map(f => ({ name: f.name, data: f.pdf }));
     const skipped = files.filter(f => !f.text && !f.pdf).map(f => f.name);
@@ -141,7 +153,7 @@
       try {
         const res = await fetch(GEN_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: PUB_KEY, Authorization: 'Bearer ' + PUB_KEY },
+          headers: { 'Content-Type': 'application/json', apikey: PUB_KEY, Authorization: 'Bearer ' + (token || PUB_KEY) },
           body: JSON.stringify({ prompt, docs, pdfs, day: dayN, count: 2,
             plan: 'Día ' + (i + 1) + ' de ' + n + '. Nivel ' + (LEVEL_ES[d.level] || d.level) + (d.exam ? '. Evaluación final integral' : '') + (p.pol.length ? '. Temas: ' + p.pol.join(', ') : '') })
         });
@@ -150,7 +162,7 @@
         training.cases = training.cases.concat(out.cases);
         training.days.push({ n: dayN, title: 'Día ' + (i + 1) + (d.exam ? ' · Evaluación' : ''), level: d.level, focus: out.cases.map(c => c.topic).slice(0, 4) });
       } catch (e) {
-        S.msgs.push({ from: 'bot', text: e.message && e.message.indexOf('Failed to fetch') === -1 ? e.message : 'No hay conexión con el servidor de IA.' });
+        S.msgs.push({ from: 'bot', text: e.message && e.message.indexOf('Failed to fetch') === -1 ? e.message : 'No hay conexión con el servidor de IA.', signup: e.message === GEN_ERR.trial_used });
         break;
       }
     }
@@ -159,6 +171,7 @@
       try { localStorage.setItem(TRAINING_KEY, JSON.stringify(training)); } catch (e) { /* too big or blocked: stays in memory */ }
       SR._lastTraining = training;
       S.msgs.push({ from: 'bot', text: 'Listo: ' + training.days.length + ' día' + (training.days.length === 1 ? '' : 's') + ' y ' + training.cases.length + ' clientes creados por la IA y revisados por el validador del simulador.', ready: true });
+      if (!token) S.msgs.push({ from: 'bot', text: 'Esta era tu prueba gratuita. Para generar entrenamientos completos, crea una cuenta.', signup: true });
     }
     save(); render();
   }
@@ -179,7 +192,8 @@
         '<div class="tc-msgs" id="tcMsgs" aria-live="polite">' + S.msgs.map((m, i) =>
           '<div class="tc-msg ' + m.from + '"><div class="tc-bub">' + esc(m.text) + (m.files ? '<div class="tc-att">' + m.files.map(f => ic('paperclip', 12) + esc(f)).join('<br>') + '</div>' : '') + '</div>' +
           (m.plan ? planHTML(m.plan) : '') +
-          (m.ready ? '<button type="button" class="tc-send tc-gen" data-tc="play">' + ic('play', 14) + 'Jugar este entrenamiento</button>' : '') + (m.from === 'me' ? '<button type="button" class="tc-del" data-tc="del" data-i="' + i + '" aria-label="Borrar mensaje">' + ic('x', 12) + '</button>' : '') + '</div>').join('') +
+          (m.ready ? '<button type="button" class="tc-send tc-gen" data-tc="play">' + ic('play', 14) + 'Jugar este entrenamiento</button>' : '') +
+          (m.signup ? '<a class="tc-mini tc-gen" href="' + SIGNUP_URL + '">' + ic('user', 13) + 'Crear cuenta gratis</a>' : '') + (m.from === 'me' ? '<button type="button" class="tc-del" data-tc="del" data-i="' + i + '" aria-label="Borrar mensaje">' + ic('x', 12) + '</button>' : '') + '</div>').join('') +
           (busy ? '<div class="tc-msg bot"><div class="tc-bub tc-typing">Analizando (demo)…</div></div>' : '') + '</div>' +
         '<div class="tc-files">' + (files.length ? files.map(f =>
           '<span class="tc-file" title="' + esc(f.name) + '">' + ic('file', 12) + '<span class="n">' + esc(f.name) + '</span><span class="m">' + esc(KINDS[f.kind]) + ' · ' + size(f.size) + '</span>' +

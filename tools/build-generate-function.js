@@ -26,7 +26,7 @@ const code = `// @ts-nocheck
 // Turns a person's prompt and documents into training cases in the simulator's own format, using
 // Claude (Anthropic). Every case is checked with the simulator's scenario validator before it is
 // returned; if Claude's answer has errors it is asked once to fix them. Open to visitors (no
-// account), so each address is limited to a few calls per hour and the whole site to a daily cap.
+// account) for ONE free try per address; signed-in people get a daily allowance; the whole site has a daily cap.
 // Needs the secret ANTHROPIC_API_KEY (Supabase → Edge Functions → Secrets). Deploy with JWT checks OFF.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.132.1';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
@@ -34,7 +34,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 const REF = ${JSON.stringify(ref)};
 const EXAMPLE = ${JSON.stringify(example)};
 ${validator}
-const LIMIT_PER_HOUR = 8;          // calls per address per hour (one call = one day of cases)
+const FREE_TRIES = 1;              // visitors without an account: one call (one day of cases), ever, per address
+const LIMIT_PER_USER_DAY = 15;     // signed-in people: calls per day
 const LIMIT_PER_DAY = 150;         // calls for the whole site per day
 const MAX_TEXT = 60000;            // characters of prompt + documents
 const MAX_PDF_BYTES = 4 * 1024 * 1024;
@@ -49,16 +50,27 @@ async function sha(text) {
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function allowed(ip) {
+// The signed-in person, if the request carries their session token (checked with Supabase Auth)
+async function userFrom(req) {
+  const token = (req.headers.get('authorization') || '').replace(/^Bearer\\s+/i, '');
+  if (!token || token.split('.').length !== 3) return null;
+  const { data, error } = await admin.auth.getUser(token);
+  return error || !data.user ? null : data.user;
+}
+
+async function allowed(ip, user) {
   const key = await sha('shiftready:' + ip);
-  const hourAgo = new Date(Date.now() - 3600e3).toISOString(), dayAgo = new Date(Date.now() - 86400e3).toISOString();
-  const [mine, all] = await Promise.all([
-    admin.from('ai_usage').select('id', { count: 'exact', head: true }).eq('ip_hash', key).gte('created_at', hourAgo),
-    admin.from('ai_usage').select('id', { count: 'exact', head: true }).gte('created_at', dayAgo)
-  ]);
-  if ((mine.count || 0) >= LIMIT_PER_HOUR) return { ok: false, why: 'rate_limited' };
+  const dayAgo = new Date(Date.now() - 86400e3).toISOString();
+  const all = await admin.from('ai_usage').select('id', { count: 'exact', head: true }).gte('created_at', dayAgo);
   if ((all.count || 0) >= LIMIT_PER_DAY) return { ok: false, why: 'daily_limit' };
-  await admin.from('ai_usage').insert({ ip_hash: key });
+  if (user) {
+    const mine = await admin.from('ai_usage').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', dayAgo);
+    if ((mine.count || 0) >= LIMIT_PER_USER_DAY) return { ok: false, why: 'rate_limited' };
+  } else {
+    const tries = await admin.from('ai_usage').select('id', { count: 'exact', head: true }).eq('ip_hash', key).is('user_id', null);
+    if ((tries.count || 0) >= FREE_TRIES) return { ok: false, why: 'trial_used' };
+  }
+  await admin.from('ai_usage').insert({ ip_hash: key, user_id: user ? user.id : null });
   return { ok: true };
 }
 
@@ -124,7 +136,8 @@ Deno.serve(async req => {
   if (prompt.length + docs.reduce((s, d) => s + d.text.length, 0) > MAX_TEXT) return json({ error: 'too_much_text' }, 413);
 
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
-  const gate = await allowed(ip);
+  const user = await userFrom(req);
+  const gate = await allowed(ip, user);
   if (!gate.ok) return json({ error: gate.why }, 429);
 
   const content = [];
