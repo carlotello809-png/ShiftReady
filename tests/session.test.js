@@ -258,7 +258,7 @@ test.describe('Ajustes del turno (la tuerquita): clientes y velocidad de respues
   const ids = n => D.scenarios.filter(s => s.day === n).map(s => s.id);
 
   test('por defecto: todos los clientes, respuestas en Auto, y no es práctica en Intermedio', () => {
-    assert.deepEqual(S.DEFAULT_SETTINGS, { difficulty: 'medium', customers: null, reply: 'auto', mode: 'chat' });
+    assert.deepEqual(S.DEFAULT_SETTINGS, { difficulty: 'medium', customers: null, reply: 'auto', mode: 'mixed' });
     const s = S.createSession({ days: [3], difficulty: 'medium' }, ctx, { seed: 4 });
     assert.equal(s.customers, null);
     assert.equal(s.reply, 'auto');

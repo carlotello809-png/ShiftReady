@@ -59,34 +59,36 @@ SR.data.personas = {
   }
 };
 
-/* Training days. decay = patience points lost per second while the customer waits on you. */
+/* Training days. decay = patience points lost per second while the customer waits on you.
+   replyIn = seconds a chat customer takes to answer you in shifts played in the simulator
+   (about a minute on Day 1, 30 seconds on Day 5); platform campaigns keep each customer's own pace. */
 SR.data.days = [
   {
-    n: 1, title: 'Orientation', date: '2026-11-02', level: 'Easy', decay: 0.45, patience: 'Relaxed',
+    n: 1, title: 'Orientation', date: '2026-11-02', level: 'Easy', decay: 0.45, patience: 'Relaxed', replyIn: 60,
     summary: 'A calm Monday to learn the basics. Customers are patient and the requests are simple — focus on tone and on reading the customer panel.',
     focus: ['Greeting customers and setting a friendly tone', 'Finding order details in the customer panel', 'Verifying guests before changing anything', 'Order status and cancellations'],
     tip: 'Before you reply, glance at the right panel. Many wrong answers sound polite but contain the wrong date, amount or status.'
   },
   {
-    n: 2, title: 'Returns & Accounts', date: '2026-11-03', level: 'Easy', decay: 0.55, patience: 'Relaxed',
+    n: 2, title: 'Returns & Accounts', date: '2026-11-03', level: 'Easy', decay: 0.55, patience: 'Relaxed', replyIn: 52,
     summary: 'More customers, more variety: exchanges, a promo code, a broken delivery and a locked account. One chat was transferred to you mid-conversation.',
     focus: ['Exchanges and stock availability', 'Promotions and their conditions', 'Damaged items and replacements', 'Account security basics'],
     tip: 'When a chat is transferred to you, read the history first. Never make a customer repeat themselves.'
   },
   {
-    n: 3, title: 'Billing & Delivery', date: '2026-11-04', level: 'Medium', decay: 0.8, patience: 'Normal',
+    n: 3, title: 'Billing & Delivery', date: '2026-11-04', level: 'Medium', decay: 0.8, patience: 'Normal', replyIn: 45,
     summary: 'Money questions and missing packages. Customers expect exact amounts and dates, and some will push back on policy.',
     focus: ['Pending charges and refunds', 'Packages marked delivered but not received', 'Price adjustments', 'Answering product questions accurately'],
     tip: 'Hold the policy line kindly: explain WHY a rule exists and give an exact date for the next step.'
   },
   {
-    n: 4, title: 'Tough Customers', date: '2026-11-05', level: 'Hard', decay: 0.7, patience: 'Short',
+    n: 4, title: 'Tough Customers', date: '2026-11-05', level: 'Hard', decay: 0.7, patience: 'Short', replyIn: 38,
     summary: 'Upset customers, requests outside policy and a possible account takeover. Patience runs out faster today.',
     focus: ['De-escalating upset customers', 'Saying no without losing the customer', 'When and how to escalate', 'Warranty troubleshooting'],
     tip: 'Acknowledge the feeling first, then act. Escalate only when policy says so — and always explain what happens next.'
   },
   {
-    n: 5, title: 'Peak Friday', date: '2026-11-06', level: 'Expert', decay: 0.85, patience: 'Very short',
+    n: 5, title: 'Peak Friday', date: '2026-11-06', level: 'Expert', decay: 0.85, patience: 'Very short', replyIn: 30,
     summary: 'The busiest shift of the week. Seven customers, high stakes: lost packages, a safety incident, an abusive customer and privacy traps.',
     focus: ['Juggling seven chats at once', 'Safety incidents and urgent escalations', 'Handling abusive language professionally', 'Protecting customer privacy'],
     tip: 'Triage: answer the customer who has waited longest or whose issue is urgent (safety, security) first.'

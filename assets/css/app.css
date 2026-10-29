@@ -1884,12 +1884,21 @@ a.btn { text-decoration: none; }
 .tb-stat.hot.ring b { color: var(--success); }
 
 /* Incoming call: card at the top right while the phone rings */
+/* It slides in from the edge of the screen like a drawer, then its photo, name and Answer button follow
+   one after another; it leaves the way it came (transitions, so a quick answer never jumps) */
 .call-in {
   position: fixed; top: 72px; right: 16px; z-index: 57; width: min(380px, calc(100vw - 24px));
-  visibility: hidden; opacity: 0; transform: translateY(-10px) scale(.97); pointer-events: none;
+  visibility: hidden; opacity: 0; transform: translateX(calc(100% + 32px)); pointer-events: none;
   transition: opacity 200ms var(--ease-out), transform 260ms var(--ease-out), visibility 0s linear 260ms;
 }
-.call-in.on { visibility: visible; opacity: 1; transform: none; pointer-events: auto; transition: opacity 200ms var(--ease-out), transform 260ms var(--ease-out); }
+.call-in.on { visibility: visible; opacity: 1; transform: none; pointer-events: auto; transition: opacity 160ms var(--ease-out), transform 440ms var(--ease-drawer); }
+.call-in .cc-av, .call-in .cc-t, .call-in .cc-answer { opacity: 0; transform: translateX(14px); transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out); }
+.call-in .cc-av { transform: scale(.86); }
+.call-in.on .cc-av, .call-in.on .cc-t, .call-in.on .cc-answer { opacity: 1; transform: none; transition: opacity 260ms var(--ease-out), transform 360ms var(--ease-out); }
+.call-in.on .cc-av { transition-delay: 120ms; }
+.call-in.on .cc-t { transition-delay: 170ms; }
+.call-in.on .cc-answer { transition-delay: 220ms; }
+.call-in.on .btn.cc-answer:active { transform: scale(.97); transition: transform 100ms var(--ease-out); }
 .cc-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px 14px 18px 16px; background: var(--panel); border: 1px solid var(--success-100); border-left: 4px solid var(--success); box-shadow: var(--sh-3); overflow: hidden; }
 .cc-av { position: relative; flex: none; display: grid; place-items: center; }
 .cc-av .av { position: relative; z-index: 1; }
@@ -1965,7 +1974,7 @@ a.btn { text-decoration: none; }
 .rv-bars i { width: 2px; height: 12px; border-radius: 1px; background: currentColor; transform: scaleY(.3); }
 .rp-voice.speaking .rv-bars { opacity: 1; }
 .rp-voice.speaking .rv-bars i { animation: wave .9s ease-in-out infinite; }
-.rp-calls { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); margin: -14px 0 28px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.rp-calls { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(5, minmax(0, 1fr)); margin: -14px 0 28px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--sh-1); }
 .rpc-h { display: flex; align-items: center; gap: 10px; padding: 12px 14px; min-width: 0; }
 .rpc-ic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; background: var(--success-50); color: var(--success); }
 .rpc-h b { display: block; font-size: 14px; }
@@ -1987,3 +1996,107 @@ a.btn { text-decoration: none; }
   .cc-pulse { opacity: .5; transform: scale(1.25); }
   .call-in { transform: none !important; }
 }
+
+/* =========================================================
+   CALL SCREEN: the caller's photo and voice instead of a chat
+   ========================================================= */
+/* A call slides into the inbox from the left edge, with a green flash */
+.ci.st-ringing.ci-enter { animation: ciCallIn 460ms var(--ease-drawer) both, ciCallFlash 1600ms ease 200ms; }
+@keyframes ciCallIn { from { opacity: 0; transform: translateX(-100%); } 45% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes ciCallFlash { from { background-color: var(--success-100); } to { background-color: var(--success-50); } }
+.ci.st-ringing .ci-av::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--success); opacity: 0; animation: csRing 1.4s var(--ease-out) infinite; pointer-events: none; }
+
+.call-stage { position: relative; flex: 1 1 0; min-height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 12px; padding: 20px 22px 14px; overflow-y: auto; background: var(--panel); }
+/* On a call the replies scroll so the caller always stays in view, and its notes always show */
+.chat.is-call .opts { max-height: 36vh; }
+.chat.is-call .cmp-foot { justify-content: space-between; gap: 10px; }
+.chat.is-call .cmp-note { display: inline-flex; flex: 1 1 auto; font-size: 11.5px; line-height: 1.4; }
+.call-stage[data-state="speak"], .call-stage[data-state="ring"] { background: linear-gradient(180deg, var(--success-50), var(--panel) 75%); }
+.call-stage[data-state="listen"], .call-stage[data-state="turn"] { background: linear-gradient(180deg, var(--primary-50), var(--panel) 75%); }
+.call-stage[data-state="hold"] { background: linear-gradient(180deg, var(--info-50), var(--panel) 75%); }
+.cs-who { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.cs-av { position: relative; width: 96px; height: 96px; margin-bottom: 8px; display: grid; place-items: center; }
+.cs-av .av { position: relative; z-index: 1; box-shadow: 0 0 0 4px var(--panel), 0 10px 28px rgba(16, 36, 58, .18); }
+.cs-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--success); opacity: 0; pointer-events: none; }
+.call-stage[data-state="speak"] .cs-ring, .call-stage[data-state="ring"] .cs-ring { animation: csRing 1.8s var(--ease-out) infinite; }
+.call-stage[data-state="speak"] .cs-ring.r2, .call-stage[data-state="ring"] .cs-ring.r2 { animation-delay: .6s; }
+.call-stage[data-state="speak"] .cs-ring.r3, .call-stage[data-state="ring"] .cs-ring.r3 { animation-delay: 1.2s; }
+.call-stage[data-state="listen"] .cs-ring { border-color: var(--primary); animation: csListen 2.4s ease-in-out infinite; }
+.call-stage[data-state="listen"] .cs-ring.r2, .call-stage[data-state="listen"] .cs-ring.r3 { display: none; }
+@keyframes csRing { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(1.75); opacity: 0; } }
+@keyframes csListen { 0%, 100% { transform: scale(1.06); opacity: .25; } 50% { transform: scale(1.16); opacity: .7; } }
+.cs-av.beat .av { animation: csBeat 180ms var(--ease-out); }
+@keyframes csBeat { 50% { transform: scale(1.035); } }
+.cs-mic { position: absolute; right: -2px; bottom: -2px; z-index: 2; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: #fff; box-shadow: 0 0 0 3px var(--panel); opacity: 0; transform: scale(.8); transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out); }
+.call-stage[data-state="listen"] .cs-mic { opacity: 1; transform: none; }
+.cs-name { font-size: 20px; letter-spacing: -.015em; }
+.cs-sub { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-3); }
+.cs-state { margin-top: 6px; padding: 4px 12px; font-size: 13px; font-weight: 600; color: var(--ink-2); background: var(--subtle); border: 1px solid var(--line); font-variant-numeric: tabular-nums; transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease; }
+.call-stage[data-state="speak"] .cs-state, .call-stage[data-state="ring"] .cs-state { color: var(--success); background: var(--success-50); border-color: var(--success-100); }
+.call-stage[data-state="listen"] .cs-state, .call-stage[data-state="turn"] .cs-state { color: var(--primary); background: var(--primary-50); border-color: var(--primary-100); }
+.call-stage[data-state="hold"] .cs-state { color: var(--info); background: var(--info-50); border-color: var(--primary-100); }
+.call-stage[data-state="off"] .cs-state { color: var(--ink-3); }
+.cs-cap { max-width: 640px; min-height: 2.4em; text-align: center; }
+.cs-cap.off { visibility: hidden; }
+.cap-l { font-size: 17px; line-height: 1.55; color: var(--ink); }
+.cw { opacity: .3; transition: opacity 160ms ease; }
+.cw.on { opacity: 1; }
+.cs-cap.cap-in .cap-l { animation: capIn 240ms var(--ease-out) both; }
+@keyframes capIn { from { opacity: 0; transform: translateY(6px); } }
+.cs-you { max-width: 640px; text-align: center; }
+.cs-you:empty { display: none; }
+.cy-k { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--primary); }
+.cs-you[data-kind="miss"] .cy-k { color: var(--warning); }
+.cy-ok { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; color: var(--success); }
+.cs-you p { margin-top: 3px; font-size: 14px; line-height: 1.5; color: var(--ink-2); font-style: italic; }
+.cs-coach { display: flex; gap: 8px; align-items: flex-start; max-width: 640px; padding: 7px 10px; font-size: 12.5px; line-height: 1.45; background: var(--subtle); border: 1px solid var(--line); opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+.cs-coach:empty { display: none; }
+.cs-coach.on { opacity: 1; transform: none; }
+.cs-coach.q3 { background: var(--success-50); border-color: var(--success-100); } .cs-coach.q3 .coach-tag { color: var(--success); }
+.cs-coach.q2 { background: var(--info-50); border-color: var(--primary-100); } .cs-coach.q2 .coach-tag { color: var(--info); }
+.cs-coach.q1 { background: var(--warning-50); border-color: var(--warning-100); } .cs-coach.q1 .coach-tag { color: var(--warning); }
+.cs-coach.q0 { background: var(--danger-50); border-color: var(--danger-100); } .cs-coach.q0 .coach-tag { color: var(--danger); }
+.cs-cc { position: absolute; top: 10px; right: 12px; padding: 3px 7px; font: 700 11px var(--font); letter-spacing: .04em; color: var(--ink-3); background: var(--panel); border: 1px solid var(--line-2); cursor: pointer; transition: color 150ms ease, border-color 150ms ease; }
+.cs-cc.on { color: var(--ink); border-color: var(--ink-3); }
+@media (hover: hover) and (pointer: fine) { .cs-cc:hover { color: var(--ink); } }
+
+/* The call screen opens like a panel: the photo first, then the name and the state */
+.call-stage.cs-open { animation: fadeOnly 220ms ease both; }
+.call-stage.cs-open .cs-who > * { animation: csIn 340ms var(--ease-out) both; }
+.call-stage.cs-open .cs-who > :nth-child(2) { animation-delay: 70ms; }
+.call-stage.cs-open .cs-who > :nth-child(3) { animation-delay: 110ms; }
+.call-stage.cs-open .cs-who > :nth-child(4) { animation-delay: 150ms; }
+.call-stage.cs-open .cs-av { animation: csAvIn 420ms var(--ease-out) both; }
+@keyframes csIn { from { opacity: 0; transform: translateY(10px); } }
+@keyframes csAvIn { from { opacity: 0; transform: scale(.88); } }
+
+/* Answering out loud */
+.vopt { cursor: default; }
+.vc-mic { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.vc-mic[data-state="listen"] { color: var(--primary); }
+.vc-mic[data-state="listen"] .i { animation: micPulse 1.2s ease-in-out infinite; }
+.vc-mic[data-state="hold"] { color: var(--info); }
+@keyframes micPulse { 50% { opacity: .4; } }
+.dec-said { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 7px 10px; font-size: 12.5px; line-height: 1.45; color: var(--info-ink); background: var(--primary-50); }
+.dec-said .i { flex: none; margin-top: 2px; }
+.dec-said b { margin-left: auto; white-space: nowrap; color: var(--primary); }
+
+@media (max-height: 760px) {
+  .call-stage { gap: 6px; padding: 12px 18px 8px; min-height: 150px; }
+  .cs-av, .cs-av .av { width: 60px; height: 60px; }
+  .cs-av { margin-bottom: 4px; }
+  .cs-mic { width: 24px; height: 24px; }
+  .cs-name { font-size: 16px; }
+  .cs-sub { display: none; }
+  .cs-state { margin-top: 2px; padding: 2px 10px; font-size: 12px; }
+  .cap-l { font-size: 14.5px; line-height: 1.45; }
+  .chat.is-call .opts { max-height: 30vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ci.st-ringing.ci-enter { animation-name: fadeOnly, ciCallFlash !important; }
+  .call-stage .cs-ring, .ci.st-ringing .ci-av::after, .vc-mic .i, .cs-av.beat .av { animation: none !important; }
+  .call-stage[data-state="speak"] .cs-ring, .call-stage[data-state="listen"] .cs-ring { opacity: .5; transform: scale(1.12); }
+  .call-stage.cs-open .cs-who > *, .call-stage.cs-open .cs-av, .cs-cap.cap-in .cap-l { animation-name: fadeOnly !important; }
+  .call-in, .call-in .cc-av, .call-in .cc-t, .call-in .cc-answer, .cs-coach { transform: none !important; }
+}
+.rc-id .i { display: inline-block; vertical-align: -2px; margin-right: 2px; }

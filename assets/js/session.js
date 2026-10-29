@@ -72,7 +72,8 @@
     { id: 'normal', label: 'Normal', mult: 1, blurb: 'Each customer’s usual pace' },
     { id: 'slow', label: 'Slow', mult: 1.5, blurb: 'Customers take about 50% longer' }
   ];
-  const DEFAULT_SETTINGS = { difficulty: DEFAULT_DIFFICULTY, customers: null, reply: 'auto', mode: 'chat' };
+  // New shifts start as "Chats + calls"; people can switch to chats only in the gear
+  const DEFAULT_SETTINGS = { difficulty: DEFAULT_DIFFICULTY, customers: null, reply: 'auto', mode: 'mixed' };
   function replySpeed(id) { return REPLY_SPEEDS.find(r => r.id === id) || REPLY_SPEEDS[0]; }
 
   /* Channels of a shift. 'mixed' adds phone calls (engine startDay o.calls): a call rings while
@@ -182,6 +183,9 @@
     };
     // Only "Chats + calls" sessions carry a mode: a chats-only session stays exactly as before
     if (mode(cfg.mode).id === 'mixed') out.mode = 'mixed';
+    // Sessions made in the simulator pace chat replies by the day (engine o.dayReplies).
+    // Platform launches don't ask for it, so the server replays them with the engine it already has.
+    if (cfg.dayReplies) out.dayReplies = true;
     return out;
   }
 
@@ -205,6 +209,7 @@
     const out = { pace, seed: daySeed(session, n) };
     if (session.picks && session.picks[n]) out.scenarios = session.picks[n].slice();
     if (session.mode === 'mixed') out.calls = true;
+    if (session.dayReplies) out.dayReplies = true;
     return out;
   }
 
@@ -227,7 +232,8 @@
         outcome: c.outcome, csat: c.csat, accuracy: c.accuracy,
         firstResponse: c.firstResponse, responseTimes: c.responseTimes.slice(),
         disposition: c.disposition, dispOk: c.dispOk, correctDisp: c.correctDisp.slice(),
-        decisions: c.decisions.map(d => ({ prompt: d.prompt, chosen: d.chosen, q: d.q, fb: d.fb, best: d.best, rt: d.rt }))
+        decisions: c.decisions.map(d => Object.assign({ prompt: d.prompt, chosen: d.chosen, q: d.q, fb: d.fb, best: d.best, rt: d.rt },
+          d.said != null ? { said: d.said, clarity: d.clarity } : null))
       }, c.call ? { call: true, answerTime: c.answerTime == null ? null : c.answerTime, holds: c.holds || 0 } : null))
     };
     if (rep.calls) out.calls = Object.assign({}, rep.calls);

@@ -28,7 +28,7 @@ Plataforma SaaS para **entrenar agentes de atención al cliente** con un simulad
 | `docs/saas/` | Diseño aprobado, roles, permisos, decisiones (06 §6.4) y plan por etapas |
 | `prototype/` | Prototipo de diseño con datos de demo (solo referencia) |
 
-Pruebas: `npm test` (251: simulador + llamadas en `tests/calls.test.js`) y `npm run validate` (escenarios y llamadas).
+Pruebas: `npm test` (255: simulador + llamadas y voz en `tests/calls.test.js`) y `npm run validate` (escenarios y llamadas).
 
 ## Roles
 - **Superadmin:** carlotello809@gmail.com (con verificación en dos pasos). Consola de plataforma: crea y suspende empresas, auditoría.
@@ -43,7 +43,8 @@ Pruebas: `npm test` (251: simulador + llamadas en `tests/calls.test.js`) y `npm 
 - Chat de entrenamiento en la portada y asistente de campañas para coaches.
 - IA con Claude **preparada pero sin conectar** (falta crédito en Anthropic y la clave `ANTHROPIC_API_KEY` en Supabase → Edge Functions → Secrets). Sin cuenta: 1 día de prueba; con cuenta: 15/día; 150/día el sitio.
 - Retoques visuales y animaciones (solo opacity/transform); portada y bienvenida solo con logo.
-- **Llamadas (modo «Chats + calls»)**, en la tuerquita → Channels. Mientras atiendes chats suena una llamada (tarjeta «Incoming call» + timbre). Contestar con el botón o la tecla A; si no contestas en 20 s se pierde. El cliente habla con la voz del navegador (gratis). Botón Hold / tecla H: en espera pierde paciencia mucho más lento. Las llamadas cuentan en la nota como un chat (perdida = cliente que se fue). El informe muestra «Phone calls» (contestadas, perdidas, tiempo hasta contestar, esperas). El modo «Solo chats» no cambió nada (prueba de huella exacta).
+- **Llamadas (modo «Chats + calls»), activado por defecto** (se puede cambiar en la tuerquita → Channels). La llamada entra deslizándose por la izquierda en la lista y por el borde derecho con la tarjeta «Incoming call» + timbre; contestar con el botón o la tecla A; si no contestas en 20 s se pierde. Al contestar se abre la **pantalla de llamada** (sin chat): foto grande con anillos cuando el cliente habla, subtítulos palabra por palabra (botón CC) y la voz del navegador (elige la voz más natural instalada). **Se contesta en voz alta**: en tu turno el micrófono escucha solo, compara lo que dijiste con las respuestas y envía la que dijiste, con su «% clear» (claridad). Si no entiende, el cliente dice «Sorry, could you repeat that?». Sin micrófono, sin permiso o en otro navegador (no Chrome/Edge), se elige con clic. Mientras hablas, el cliente no pierde paciencia. Hold / tecla H. Las llamadas cuentan en la nota como un chat (perdida = cliente que se fue); el informe muestra «Phone calls» con «Speaking clarity» y lo que dijiste en cada respuesta. Para probar sin micrófono: en la consola, `SR.voice.hear('texto')`.
+- **Clientes de chat más pausados por día** (solo en el simulador): tardan ~1 minuto en el Día 1, 52 s, 45 s, 38 s y ~30 s en el Día 5 (`replyIn` de cada día en `data/company.js`). Las campañas de la plataforma siguen con el ritmo de antes para que el servidor las verifique igual.
 - **Voces automáticas, sin botón:** cada paso del tour del Día 1 pone su audio al aparecer («Continue» corta el anterior y pone el siguiente); el informe pone el mensaje del coach según la nota (75+ bien, 60–74 regular, <60 mal) y lo muestra escrito. El interruptor Sound las apaga.
 - Arreglado: la pantalla de bienvenida se quedaba trabada (no se podía cerrar) por un elemento quitado en el cambio anterior.
 

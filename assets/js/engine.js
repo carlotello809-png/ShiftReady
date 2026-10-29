@@ -111,6 +111,7 @@
     /* ---------- shift lifecycle ---------- */
     // o.pace: see paceOf() · o.seed: number for a repeatable shift
     // o.calls: true (or a number) adds phone calls to the shift; without it there are only chats
+    // o.dayReplies: chat customers answer at the day's pace (days[].replyIn), see replyIn()
     E.startDay = function (n, o) {
       o = o || {};
       const day = D.days.find(d => d.n === n);
@@ -124,6 +125,7 @@
       const seed = typeof o.seed === 'number' && isFinite(o.seed) ? o.seed >>> 0 : null;
       random = seed == null ? baseRandom : seededRandom(seed);
       const st = E.st = { day, n, clock: 0, queue: [], seq: 0, mid: 0, paused: false, running: true, ended: false, convs: [], pace: paceOf(o.pace), seed };
+      if (o.dayReplies) st.dayReplies = true;
       st.convs = scs.map((sc, i) => newConv(sc, i, n));
       E.activeId = null;
       E.steps = 0;                 // fixed steps played in this shift (see E.tick)
@@ -173,6 +175,11 @@
       if (!c || !c.call || c.status !== 'agent' || on === !!c.onHold) return false;
       setHold(c, on);
       return true;
+    };
+    // While the agent is speaking to a caller (voice answers), the silence clock stops
+    E.talking = function (id, on) {
+      const c = E.get(id);
+      if (c && c.call) c.talking = !!on && c.status === 'agent' && !c.onHold;
     };
     function setHold(c, on) {
       const st = E.st;
@@ -248,7 +255,7 @@
       const st = E.st;
       for (const c of st.convs) {
         if (c.status === 'ringing') { c.patience = Math.max(0, c.patience - RING_DECAY * dt / 1000); continue; }
-        if (c.status !== 'agent') continue;
+        if (c.status !== 'agent' || c.talking) continue;
         let rate = st.day.decay * c.persona.decay * (c.sc.decay || 1) * st.pace.decay;
         if (c.call) rate *= c.onHold ? ON_HOLD : CALL_SILENCE;
         const before = c.patience;
@@ -331,9 +338,24 @@
     // Seconds this customer usually takes to answer after the agent writes
     // (each customer has their own pace; every reply varies ±20%, never more than 30s).
     const MAX_REPLY_DELAY = 30000;
-    function replyIn(c) { return (c.sc.replyIn || c.persona.replyIn || 15) * (E.st ? E.st.pace.reply : 1); }
+    // Shifts started with o.dayReplies use the day's pace instead (days[].replyIn: about a minute on the
+    // first day, 30 seconds by the last), each customer a little quicker or slower than the day's pace.
+    const MAX_DAY_REPLY = 90000;
+    function dayReplyIn(c) {
+      const st = E.st;
+      if (!st || !st.dayReplies || !(st.day.replyIn > 0)) return null;
+      const own = (c.sc.replyIn || c.persona.replyIn || 16) / 16;
+      return st.day.replyIn * clamp(own, 0.85, 1.15);
+    }
+    function replyIn(c) {
+      const day = dayReplyIn(c);
+      return (day != null ? day : c.sc.replyIn || c.persona.replyIn || 15) * (E.st ? E.st.pace.reply : 1);
+    }
     E.replyIn = replyIn;
-    function replyDelay(c) { return Math.min(MAX_REPLY_DELAY, replyIn(c) * 1000 * rand(0.8, 1.2)); }
+    function replyDelay(c) {
+      if (dayReplyIn(c) != null) return Math.min(MAX_DAY_REPLY, replyIn(c) * 1000 * rand(0.85, 1.15));
+      return Math.min(MAX_REPLY_DELAY, replyIn(c) * 1000 * rand(0.8, 1.2));
+    }
 
     function enterNode(c, id, pre, mode) {
       const node = c.sc.nodes[id];
@@ -395,6 +417,7 @@
     function startTurn(c, keepOrder) {
       const node = c.sc.nodes[c.node];
       c.status = 'agent';
+      c.talking = false;
       c.turnStart = E.st.clock;
       c.turnToken++;
       const avail = node.o.map((_, i) => i).filter(i => !c.used.has(i));
@@ -422,7 +445,8 @@
       if (c && c.status === 'agent' && !c.used.has(i)) c.selected = i;
     };
 
-    E.send = function (id, i) {
+    // spoken (calls answered by voice): { said: what the microphone heard, clarity: 0–1 }
+    E.send = function (id, i, spoken) {
       const c = E.get(id);
       if (!c || c.status !== 'agent') return false;
       const node = c.sc.nodes[c.node];
@@ -434,16 +458,22 @@
       if (c.firstResponse == null) c.firstResponse = rt;
       c.responseTimes.push(rt);
       c.typing = false;
+      c.talking = false;
       c.turnToken++;
       c.selected = null;
       c.lastSentAt = st.clock;
 
       const text = fill(o.t, c);
       const best = node.o.reduce((b, x) => (x.q > b.q ? x : b), node.o[0]);
-      c.decisions.push({
+      const dec = {
         prompt: lastCustomerText(c), chosen: text, q: o.q, fb: o.fb || '',
         best: best === o ? null : fill(best.t, c), rt
-      });
+      };
+      if (c.call && spoken && typeof spoken.said === 'string') {
+        dec.said = spoken.said.slice(0, 600);
+        dec.clarity = clamp(Number(spoken.clarity) || 0, 0, 1);
+      }
+      c.decisions.push(dec);
       pushMsg(c, { from: 'agent', text });
       pushMsg(c, { from: 'coach', q: o.q, text: o.fb || '' });
       c.patience = clamp(c.patience + PATIENCE_DELTA[o.q], 0, 100);
@@ -531,7 +561,8 @@
         missed: calls.filter(c => c.outcome === 'missed').length,
         hungUp: calls.filter(c => c.outcome === 'abandoned').length,
         avgAnswer: avg(calls.filter(c => c.answerTime != null).map(c => c.answerTime)),
-        holds: calls.reduce((s, c) => s + (c.holds || 0), 0)
+        holds: calls.reduce((s, c) => s + (c.holds || 0), 0),
+        clarity: avg([].concat.apply([], calls.map(c => c.decisions.filter(d => d.clarity != null).map(d => d.clarity))))
       } : null;
       return { n, day: st.day, resolved, abandoned, avgCsat, acc, wrap, frt, art, score, stars, passed: score >= 60, convs: cs, duration: st.clock, calls: callStats };
     };

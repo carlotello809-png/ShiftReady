@@ -198,3 +198,68 @@ test.describe('El ajuste "Chats + calls" de la sesión', () => {
     assert.ok(r.strengths.some(x => x.title === 'Every call answered'));
   });
 });
+
+test.describe('Respuestas de los clientes al ritmo del día (turnos del simulador)', () => {
+  // How long after the agent's reply the customer starts answering (the first reply that gets an answer)
+  function replyGap(dayN, startOpts) {
+    const sim = createSim({ seed: 21 });
+    sim.E.startDay(dayN, Object.assign({ seed: 21 }, startOpts));
+    const c = sim.E.st.convs[0];
+    for (let k = 0; k < 8; k++) {
+      sim.waitForTurn(c.id, 200000);
+      const sentAt = sim.E.st.clock;
+      const was = c.replyAt;
+      sim.send(c.id, bestOption(c));
+      if (c.replyAt !== was && c.replyAt > sentAt) return c.replyAt - sentAt;
+    }
+    throw new Error('ninguna respuesta del cliente');
+  }
+  test('día 1 ≈ 1 minuto, día 5 ≈ 30 s; sin la opción, cada cliente a su ritmo de siempre', () => {
+    const d1 = replyGap(1, { dayReplies: true }), d5 = replyGap(5, { dayReplies: true });
+    assert.ok(d1 >= 40000 && d1 <= 85000, 'día 1: ' + d1);
+    assert.ok(d5 >= 20000 && d5 <= 45000, 'día 5: ' + d5);
+    assert.ok(d1 > d5, 'más tiempo en los primeros días');
+    assert.ok(replyGap(1) <= 32000, 'sin dayReplies (plataforma) sigue igual');
+  });
+  test('la sesión del simulador lo pide; una de la plataforma no', () => {
+    const ctx = { data: createSim({ seed: 1 }).data, isUnlocked: () => true };
+    const sim = S.createSession({ days: [1], difficulty: 'medium', dayReplies: true }, ctx, { seed: 3 });
+    assert.equal(S.startOptions(sim, 1).dayReplies, true);
+    const plat = S.createSession({ days: [1], difficulty: 'medium' }, ctx, { seed: 3 });
+    assert.equal('dayReplies' in plat, false);
+    assert.equal(S.startOptions(plat, 1).dayReplies, undefined);
+  });
+});
+
+test.describe('Contestar en voz alta', () => {
+  test('mientras el agente habla, el cliente no pierde paciencia; lo que dijo queda en el informe', () => {
+    const sim = createSim({ seed: 31 });
+    sim.E.startDay(1, { calls: true, seed: 7 });
+    const c = firstRing(sim);
+    sim.E.answer(c.id);
+    sim.waitForTurn(c.id, 15000);
+    sim.E.talking(c.id, true);
+    const p = c.patience;
+    sim.advance(6000);
+    assert.equal(c.patience, p, 'hablando: la paciencia no baja');
+    sim.E.talking(c.id, false);
+    sim.advance(3000);
+    assert.ok(c.patience < p, 'en silencio vuelve a bajar');
+    const i = bestOption(c);
+    assert.equal(sim.E.send(c.id, i, { said: 'thanks for calling lumen and co', clarity: 0.82 }), true);
+    const d = c.decisions[c.decisions.length - 1];
+    assert.equal(d.said, 'thanks for calling lumen and co');
+    assert.equal(d.clarity, 0.82);
+    assert.equal(c.talking, false);
+  });
+  test('los chats no guardan nada de voz aunque se pase', () => {
+    const sim = createSim({ seed: 32 });
+    sim.E.startDay(1, { seed: 32 });
+    const c = sim.E.st.convs[0];
+    sim.waitForTurn(c.id, 120000);
+    sim.E.talking(c.id, true);
+    assert.notEqual(c.talking, true, 'talking solo existe en llamadas');
+    sim.E.send(c.id, bestOption(c), { said: 'hola', clarity: 1 });
+    assert.equal('said' in c.decisions[0], false);
+  });
+});

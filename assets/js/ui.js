@@ -15,14 +15,16 @@
   function loadStore() {
     try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
   }
-  const store = Object.assign({ agentName: 'Alex Morgan', coach: true, sound: true, intro: true, theme: 'light', unlockAll: false, difficulty: SS.DEFAULT_DIFFICULTY, customers: null, reply: 'auto', mode: 'chat', progress: {} }, loadStore());
+  const store = Object.assign({ agentName: 'Alex Morgan', coach: true, sound: true, intro: true, theme: 'light', unlockAll: false, difficulty: SS.DEFAULT_DIFFICULTY, customers: null, reply: 'auto', channels: SS.DEFAULT_SETTINGS.mode, captions: true, progress: {} }, loadStore());
   if (!store.progress || typeof store.progress !== 'object') store.progress = {};
   if (!SS.DIFFICULTIES.some(d => d.id === store.difficulty)) store.difficulty = SS.DEFAULT_DIFFICULTY;
   // Shift settings (the gear): customers per shift (null = all of the day) and how fast customers reply
   if (!(Number.isInteger(store.customers) && store.customers >= 1)) store.customers = null;
   if (!SS.REPLY_SPEEDS.some(r => r.id === store.reply)) store.reply = 'auto';
-  // Chats only, or chats + phone calls
-  if (!SS.MODES.some(m => m.id === store.mode)) store.mode = 'chat';
+  // Chats + phone calls (the default) or chats only. "mode" was the first name of this setting:
+  // it is dropped so everyone starts with calls on, and can still turn them off in the gear.
+  delete store.mode;
+  if (!SS.MODES.some(m => m.id === store.channels)) store.channels = SS.DEFAULT_SETTINGS.mode;
   function saveStore() {
     try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* storage unavailable */ }
   }
@@ -117,13 +119,17 @@
     if (s < 11) return 'about 10 seconds';
     if (s < 17) return 'about 15 seconds';
     if (s < 22) return 'about 20 seconds';
-    return '25–30 seconds';
+    if (s < 34) return 'about 30 seconds';
+    if (s < 50) return 'about 40 seconds';
+    return 'about a minute';
   }
   function paceShort(s) {
     if (s < 11) return 'Fast · ~10s';
     if (s < 17) return 'Steady · ~15s';
     if (s < 22) return 'Relaxed · ~20s';
-    return 'Slow · ~30s';
+    if (s < 34) return 'Slow · ~30s';
+    if (s < 50) return 'Slow · ~40s';
+    return 'Very slow · ~1 min';
   }
   function initials(name) { const p = String(name).trim().split(/\s+/); return ((p[0] || '')[0] || '').toUpperCase() + ((p[1] || '')[0] || '').toUpperCase(); }
   function hue(name) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360; return h; }
@@ -376,7 +382,9 @@
     const ns = [];
     t.days.forEach(d => {
       if (!isCustomDay(d.n) || !t.cases.some(c => c.day === d.n)) return;
-      D.days.push(Object.assign({}, D.days[0], { n: d.n, title: String(d.title || 'Custom day').slice(0, 60), level: d.level || 'Medium',
+      const level = d.level || 'Medium';
+      D.days.push(Object.assign({}, D.days[0], { n: d.n, title: String(d.title || 'Custom day').slice(0, 60), level,
+        replyIn: { Easy: 60, Medium: 45, Hard: 38, Expert: 30 }[level] || 45,
         summary: d.summary || 'Generated training day.', focus: (d.focus || []).slice(0, 4), tip: '' }));
       ns.push(d.n);
     });
@@ -459,9 +467,9 @@
   /* ---------- shift settings (the gear) ---------- */
   const dayCount = n => D.scenarios.filter(s => s.day === n).length;
   // What the next shift uses: picked in the gear panel, kept in this browser
-  function shiftSettings() { return { difficulty: store.difficulty, customers: store.customers, reply: store.reply, mode: store.mode }; }
+  function shiftSettings() { return { difficulty: store.difficulty, customers: store.customers, reply: store.reply, mode: store.channels, dayReplies: true }; }
   // (the multi-day setup picks its own difficulty, so there only customers and replies matter)
-  const isDefaultSettings = () => store.customers == null && store.reply === SS.DEFAULT_SETTINGS.reply && store.mode === SS.DEFAULT_SETTINGS.mode &&
+  const isDefaultSettings = () => store.customers == null && store.reply === SS.DEFAULT_SETTINGS.reply && store.channels === SS.DEFAULT_SETTINGS.mode &&
     (ui.view === 'setup' || store.difficulty === SS.DEFAULT_SETTINGS.difficulty);
   // Customers a day will have with the current setting
   const shiftCustomers = n => Math.min(dayCount(n), store.customers || Infinity);
@@ -484,7 +492,7 @@
         '<span class="qs-chip diff-' + d.id + '">' + esc(d.label) + '</span>' +
         '<span class="qs-chip">' + (k < all ? k + ' of ' + all : 'All ' + all) + ' customers</span>' +
         '<span class="qs-chip">' + esc(r.label) + ' replies</span>' +
-        (store.mode === 'mixed' ? '<span class="qs-chip qs-calls">' + icon('phone', 12) + '+ Calls</span>' : '') +
+        (store.channels === 'mixed' ? '<span class="qs-chip qs-calls">' + icon('phone', 12) + '+ Calls</span>' : '') +
         (isDefaultSettings() ? '<span class="qs-def">Default</span>' : '') +
       '</button>' +
       '<p class="quick-note">' + (why.length
@@ -511,7 +519,7 @@
       '<div class="ss-sec"><div class="ss-h"><b>Customers</b><span id="ssCustB"></span></div>' +
         segHTML('ss-cust', custItems, cust, 'Customers') + '</div>' +
       '<div class="ss-sec"><div class="ss-h"><b>Channels</b><span id="ssModeB"></span></div>' +
-        segHTML('ss-mode', SS.MODES, store.mode, 'Channels') + '</div>' +
+        segHTML('ss-mode', SS.MODES, store.channels, 'Channels') + '</div>' +
       (inSetup ? '' : '<div class="ss-sec"><div class="ss-h"><b>Difficulty</b><span id="ssDiffB"></span></div>' +
         segHTML('ss-diff', SS.DIFFICULTIES, store.difficulty, 'Difficulty') + '</div>') +
       '<div class="ss-sec"><div class="ss-h"><b>How fast customers reply</b><span id="ssReplyB"></span></div>' +
@@ -531,13 +539,13 @@
     const mark = (act, v) => $$('[data-act="' + act + '"]', overlay).forEach(b => {
       const on = b.dataset.v === v; b.classList.toggle('on', on); b.setAttribute('aria-checked', on);
     });
-    mark('ss-cust', cust); mark('ss-diff', store.difficulty); mark('ss-reply', store.reply); mark('ss-mode', store.mode);
+    mark('ss-cust', cust); mark('ss-diff', store.difficulty); mark('ss-reply', store.reply); mark('ss-mode', store.channels);
     const set = (id, txt) => { const el = $('#' + id); if (el) el.textContent = txt; };
     const k = cust === 'all' ? all : Number(cust);
     set('ssCustB', cust === 'all' ? (inSetup ? 'Every customer of each day' : 'All ' + all + ' customers of the day')
       : (inSetup ? 'Up to ' + k + ' per day, picked at random' : k + ' of ' + all + ', picked at random'));
     set('ssDiffB', SS.difficulty(store.difficulty).blurb);
-    set('ssModeB', SS.mode(store.mode).blurb + (store.mode === 'mixed' ? ' · they count in the score' : ''));
+    set('ssModeB', SS.mode(store.channels).blurb + (store.channels === 'mixed' ? ' · they count in the score' : ''));
     const r = SS.replySpeed(store.reply);
     set('ssReplyB', r.id === 'auto' ? 'Set by the difficulty (' + SS.difficulty(inSetup && ui.setup ? ui.setup.difficulty : store.difficulty).label + ')' : r.blurb);
     const days = inSetup && ui.setup ? ui.setup.days : [ui.day];
@@ -682,7 +690,7 @@
   }
 
   // The multi-day setup uses its own days and difficulty plus the gear's customers and reply speed
-  function setupConfig() { return { days: ui.setup.days, difficulty: ui.setup.difficulty, customers: store.customers, reply: store.reply, mode: store.mode }; }
+  function setupConfig() { return { days: ui.setup.days, difficulty: ui.setup.difficulty, customers: store.customers, reply: store.reply, mode: store.channels, dayReplies: true }; }
   function setupSummaryHTML() {
     const cfg = setupConfig();
     const v = SS.validateConfig(cfg, { data: D, isUnlocked });
@@ -701,7 +709,7 @@
         '<div><b>' + esc(diff.label) + '</b><span>difficulty</span></div>' +
       '</div>' +
       '<button class="sum-set" data-act="shift-settings" aria-haspopup="dialog">' + icon('gear', 16) +
-        '<span><b>' + (store.customers ? 'Up to ' + store.customers + ' customers a day' : 'Every customer') + ' · ' + esc(r.label) + ' replies' + (store.mode === 'mixed' ? ' · with calls' : '') + '</b><small>Change in shift settings</small></span>' + icon('chevRight', 14) + '</button>' +
+        '<span><b>' + (store.customers ? 'Up to ' + store.customers + ' customers a day' : 'Every customer') + ' · ' + esc(r.label) + ' replies' + (store.channels === 'mixed' ? ' · with calls' : '') + '</b><small>Change in shift settings</small></span>' + icon('chevRight', 14) + '</button>' +
       (rows ? '<ol class="sum-days">' + rows + '</ol>' : '<p class="sum-empty">No days selected yet.</p>') +
       (v.ok ? '' : '<div class="alert" role="alert">' + icon('alert', 15) + '<div>' + v.errors.map(e => '<p>' + esc(e) + '</p>').join('') + '</div></div>') +
       (why.length && v.ok ? '<p class="sum-flow">' + icon('info', 13) + esc('Practice session (' + why.join(' · ') + '): results won’t unlock days or change best scores.') + '</p>' : '') +
@@ -766,7 +774,8 @@
   const settingsOf = s => ({ difficulty: s.difficulty, customers: s.customers || null, reply: s.reply || 'auto', mode: s.mode || 'chat' });
   // From the setup screen, or a single day from the lobby. set: { difficulty, customers, reply }
   function startSession(days, set) {
-    const cfg = { days, difficulty: set.difficulty, customers: set.customers || null, reply: set.reply || 'auto', mode: set.mode || 'chat' };
+    // dayReplies: chat customers answer at the day's pace (about a minute on Day 1, 30 s on Day 5)
+    const cfg = { days, difficulty: set.difficulty, customers: set.customers || null, reply: set.reply || 'auto', mode: set.mode || SS.DEFAULT_SETTINGS.mode, dayReplies: true };
     const v = SS.validateConfig(cfg, { data: D, isUnlocked });
     if (!v.ok) return false;
     store.difficulty = cfg.difficulty;
@@ -952,7 +961,7 @@
       // A new chat slides into the inbox with a short highlight
       el._enter = true;
       el.addEventListener('animationend', ev => {
-        if (ev.target === el && ev.animationName === 'ciFlash') { el._enter = false; el.classList.remove('ci-enter'); }
+        if (ev.target === el && (ev.animationName === 'ciFlash' || ev.animationName === 'ciCallFlash')) { el._enter = false; el.classList.remove('ci-enter'); }
       });
       listEls.set(c.id, el);
     }
@@ -1041,13 +1050,13 @@
         '<div class="ce-keys"><span><kbd>1</kbd>–<kbd>4</kbd> choose reply</span><span><kbd>Enter</kbd> send</span><span><kbd>Alt</kbd>+<kbd>↓</kbd> next chat</span></div></div>';
       return;
     }
-    host.className = 'chat' + (c.call ? ' is-call' : '');
+    // A call opens its own screen: the caller's photo and voice, no chat
+    if (c.call) { renderCallScreen(c); return; }
+    host.className = 'chat';
     host.innerHTML = '<header class="chat-h" id="chatHead"></header>' +
-      (c.call ? '<div class="call-bar" id="callBar"></div>' : '') +
       '<div class="msgs" id="msgs"><div id="msgsIn"></div><div class="typing-row" id="typingRow"></div></div>' +
       '<div class="composer" id="composer"></div>';
     renderHeader(c);
-    renderCallBar(c);
     renderMessages(c);
     renderTyping(c);
     renderComposer(c, false);
@@ -1071,6 +1080,19 @@
         '<button class="icon-btn details-toggle" data-act="toggle-details" title="Customer details">' + icon('panel', 18) + '</button>' +
       '</div>';
     updateHeaderLive(c);
+  }
+
+  function renderCallScreen(c) {
+    const host = $('#chat');
+    host.className = 'chat is-call';
+    host.innerHTML = '<header class="chat-h" id="chatHead"></header>' +
+      '<div class="call-bar" id="callBar"></div>' +
+      '<div class="call-stage cs-open" id="callStage"></div>' +
+      '<div class="composer" id="composer"></div>';
+    renderHeader(c);
+    renderCallBar(c);
+    renderCallStage(c);
+    renderComposer(c, false);
   }
 
   // The strip under a call's header: on call / on hold, call length and the Hold button
@@ -1265,10 +1287,11 @@
     let html;
     if (c.call && c.status === 'ringing') {
       html = '<div class="cmp"><div class="call-ring">' +
-        '<div class="cc-av">' + avatarHTML(c.sc.customer, 48) + '<span class="cc-pulse"></span><span class="cc-pulse d2"></span></div>' +
         '<div class="cr-t"><b>' + first + ' is calling</b><p>Answer before the phone stops ringing, or the call is missed. <span class="cr-left" id="ringLeft">' + ringLeftLabel(c) + '</span></p></div>' +
         '<button class="btn btn-primary btn-lg cr-answer" data-act="answer" data-id="' + c.id + '">' + icon('phone', 16) + 'Answer</button>' +
       '</div></div>';
+    } else if (c.call && c.status === 'agent' && voiceAnswers()) {
+      html = voiceComposerHTML(c, first);
     } else if (c.status === 'agent') {
       const node = c.sc.nodes[c.node];
       html = '<div class="cmp">' +
@@ -1280,13 +1303,14 @@
             '<span class="opt-k">' + (k + 1) + '</span><span class="opt-t">' + esc(E.fill(node.o[i].t, c)) + '</span><span class="opt-check">' + icon('check', 15) + '</span></button>').join('') +
         '</div>' +
         '<div class="cmp-foot"><span class="cmp-note">' + icon('info', 13) + (!c.call ? 'Check the customer panel before answering — details matter.'
-          : c.onHold ? first + ' is on hold. Saying something takes them off hold.' : first + ' is waiting on the line. Need a moment to check? Put them on hold.') + '</span>' +
+          : micBlockedNote() || (c.onHold ? first + ' is on hold. Saying something takes them off hold.' : first + ' is waiting on the line. Need a moment to check? Put them on hold.')) + '</span>' +
+        (c.call && mic.blocked === 'denied' ? '<button class="btn btn-sm" data-act="mic-retry">' + icon('mic', 13) + 'Use the microphone</button>' : '') +
         '<button class="btn btn-primary" data-act="send" id="sendBtn"' + (c.selected == null ? ' disabled' : '') + '>' + (c.call ? icon('phone', 15) + 'Say it' : icon('send', 15) + 'Send') + '</button></div>' +
       '</div>';
     } else if (c.call && c.status === 'customer') {
       html = '<div class="cmp"><div class="cmp-wait"><div class="cw-ic">' + (c.typing ? '<span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>' : icon('headset', 18)) + '</div>' +
-        '<div class="cw-t"><b>' + (c.typing ? first + ' is speaking…' : 'On the line with ' + first) + '</b>' +
-        '<p>Listen, then choose what to say. Callers answer right away — your chats keep waiting meanwhile.</p></div></div></div>';
+        '<div class="cw-t"><b>' + (c.typing ? 'Listen to ' + first : 'On the line with ' + first) + '</b>' +
+        '<p>' + (voiceAnswers() ? 'When ' + first + ' finishes, answer out loud — the mic turns on by itself.' : 'Listen, then choose what to say.') + ' Your chats keep waiting meanwhile.</p></div></div></div>';
     } else if (c.status === 'customer' || c.status === 'pending') {
       const replied = c.lastSentAt != null;
       const pace = paceLabel(E.replyIn(c));
@@ -2007,10 +2031,12 @@
     }
   }
 
-  // Each caller line is read aloud by the browser's own voice (free, nothing to download)
+  // Each caller line is read aloud by the browser's own voice (free, nothing to download).
+  // The most natural voice installed is used (Edge's "Natural" voices, Chrome's Google voices).
   const speech = window.speechSynthesis || null;
-  const FEMALE_VOICE = /female|zira|aria|jenny|samantha|susan|hazel|libby|sonia|karen|moira|tessa|fiona|victoria|\bava\b|allison|emma|michelle|natasha|clara|joanna|salli|kendra|kimberly/i;
-  const MALE_VOICE = /\bmale|david|mark|guy|daniel|\balex\b|fred|ryan|george|james|thomas|rishi|aaron|christopher|eric|roger|andrew|brian|liam|matthew|joey|justin/i;
+  const FEMALE_VOICE = /female|zira|aria|jenny|samantha|susan|hazel|libby|sonia|karen|moira|tessa|fiona|victoria|\bava\b|allison|emma|michelle|natasha|clara|joanna|salli|kendra|kimberly|\bana\b|sara|nancy|\bjane\b|amber|ashley|cora|elizabeth|monica|maisie|google us english/i;
+  const MALE_VOICE = /\bmale|david|mark|guy|daniel|\balex\b|fred|ryan|george|james|thomas|rishi|aaron|christopher|eric|roger|andrew|brian|liam|matthew|joey|justin|steffan|davis|tony|jason|jacob|brandon|christian|william|oliver/i;
+  const voiceScore = v => (/natural|neural|online/i.test(v.name) ? 4 : 0) + (/google/i.test(v.name) ? 2 : 0) + (v.localService === false ? 1 : 0) + (/en[-_]US/i.test(v.lang) ? 1 : 0);
   function callerVoice(cu) {
     const all = speech.getVoices().filter(v => /^en([-_]|$)/i.test(v.lang));
     if (!all.length) return null;
@@ -2019,22 +2045,290 @@
     let pool = all.filter(v => want.test(v.name) && !other.test(v.name));
     if (!pool.length) pool = all.filter(v => !other.test(v.name));
     if (!pool.length) pool = all;
-    const us = pool.filter(v => /en[-_]US/i.test(v.lang));
-    if (us.length) pool = us;
+    const top = Math.max.apply(null, pool.map(voiceScore));
+    pool = pool.filter(v => voiceScore(v) === top);
     return pool[hue(cu.first + ' ' + cu.last) % pool.length];   // the same caller always has the same voice
   }
-  function speakLine(c, text) {
-    if (!speech || !store.sound || ui.view !== 'shift' || !E.st || E.st.paused) return;
+  const tts = { id: null };
+  const canSpeak = () => !!speech && store.sound && ui.view === 'shift' && !!E.st && !E.st.paused;
+  // onEnd also runs when nothing can be spoken
+  function speakLine(c, text, onEnd) {
+    if (!canSpeak()) { setCaption(c, text, true); if (onEnd) onEnd(); return; }
     try {
+      stopMic();   // the microphone must not hear the caller
       const u = new SpeechSynthesisUtterance(String(text));
       const v = callerVoice(c.sc.customer);
       if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
-      u.rate = 1.03;
-      u.pitch = 0.92 + (hue(c.sc.customer.last) % 17) / 100;
+      u.rate = 1;
+      u.pitch = 0.94 + (hue(c.sc.customer.last) % 13) / 100;
+      let byWord = false;
+      u.onstart = () => {
+        tts.id = c.id;
+        if (ui.active !== c.id) return;
+        setCaption(c, text, false);
+        runCaption(text);
+        updateCallStage(c);
+      };
+      // Word by word, when the voice reports it: the caption lights up and the photo pulses with the voice
+      u.onboundary = e => {
+        if (ui.active !== c.id || e.name === 'sentence') return;
+        if (!byWord) { byWord = true; clearInterval(capTimer); }
+        lightWords(e.charIndex + 1);
+        const av = $('#callStage .cs-av');
+        if (av) { av.classList.remove('beat'); void av.offsetWidth; av.classList.add('beat'); }
+      };
+      const done = () => {
+        if (!speech.speaking && !speech.pending) tts.id = null;
+        if (ui.active === c.id) { clearInterval(capTimer); lightWords(Infinity); updateCallStage(c); }
+        if (onEnd) onEnd();
+      };
+      u.onend = done;
+      u.onerror = done;
       speech.speak(u);
-    } catch (e) { /* speech unavailable */ }
+    } catch (e) { setCaption(c, text, true); if (onEnd) onEnd(); }
   }
-  function hushCalls() { if (speech) { try { speech.cancel(); } catch (e) { /* ignore */ } } }
+  function hushCalls() {
+    tts.id = null;
+    clearInterval(capTimer);
+    if (speech) { try { speech.cancel(); } catch (e) { /* ignore */ } }
+  }
+  const callerSpeaking = c => !!speech && (speech.speaking || speech.pending) && tts.id === c.id;
+
+  /* ---------- the call screen: the caller's photo, live captions and your own voice ---------- */
+  function lastCallerLine(c) {
+    for (let i = c.messages.length - 1; i >= 0; i--) if (c.messages[i].from === 'customer') return c.messages[i];
+    return null;
+  }
+  const captionsOn = () => store.captions !== false || !store.sound || !speech;
+  function renderCallStage(c) {
+    const el = $('#callStage');
+    if (!el || !c.call) return;
+    const cu = c.sc.customer;
+    el.innerHTML =
+      '<div class="cs-who">' +
+        '<div class="cs-av"><span class="cs-ring"></span><span class="cs-ring r2"></span><span class="cs-ring r3"></span>' + avatarHTML(cu, 96) +
+          '<span class="cs-mic" aria-hidden="true">' + icon('mic', 14) + '</span></div>' +
+        '<b class="cs-name">' + esc(cu.first + ' ' + cu.last) + '</b>' +
+        '<span class="cs-sub">' + icon('phone', 12) + esc(c.sc.topic) + '</span>' +
+        '<span class="cs-state" id="csState"></span>' +
+      '</div>' +
+      '<div class="cs-cap" id="csCap" aria-live="polite"></div>' +
+      '<div class="cs-you" id="csYou" aria-live="polite"></div>' +
+      '<div class="cs-coach" id="csCoach"></div>' +
+      '<button class="cs-cc' + (store.captions !== false ? ' on' : '') + '" data-act="captions" aria-pressed="' + (store.captions !== false) + '" title="Captions: show what the caller says">CC</button>';
+    const last = lastCallerLine(c);
+    if (last && c.answeredAt != null) setCaption(c, last.text, !callerSpeaking(c));
+    updateCallStage(c);
+  }
+  function callStageState(c) {
+    const first = c.sc.customer.first;
+    if (c.status === 'ringing') return ['ring', 'Incoming call…'];
+    if (c.status === 'ended' || c.status === 'closed') return ['off', c.outcome === 'missed' ? 'Missed call' : c.outcome === 'abandoned' ? first + ' hung up' : 'Call ended'];
+    if (c.onHold) return ['hold', 'On hold · ' + fmtDur(E.st.clock - c.turnStart)];
+    if (c.typing || callerSpeaking(c)) return ['speak', first + ' is speaking…'];
+    if (c.status === 'agent') {
+      if (mic.on && mic.id === c.id) return ['listen', 'Your turn — speak now · ' + fmtDur(E.st.clock - c.turnStart)];
+      return ['turn', 'Your turn · ' + fmtDur(E.st.clock - c.turnStart)];
+    }
+    return ['line', 'On the line'];
+  }
+  function updateCallStage(c) {
+    const el = $('#callStage');
+    if (!el || !c || !c.call || ui.active !== c.id) return;
+    const [k, t] = callStageState(c);
+    if (el.dataset.state !== k) el.dataset.state = k;
+    const st = $('#csState', el);
+    if (st && st.textContent !== t) st.textContent = t;
+    setMicUI(c);
+  }
+
+  // Captions: the line the caller is saying, its words lighting up as they are spoken
+  let capTimer = 0;
+  function setCaption(c, text, lit) {
+    const cap = $('#csCap');
+    if (!cap || ui.active !== c.id) return;
+    clearInterval(capTimer);
+    cap.classList.toggle('off', !captionsOn());
+    let at = 0;
+    cap.innerHTML = '<p class="cap-l">' + String(text).split(/\s+/).filter(Boolean).map(w => {
+      const h = '<span class="cw' + (lit ? ' on' : '') + '" data-at="' + at + '">' + esc(w) + '</span>';
+      at += w.length + 1;
+      return h;
+    }).join(' ') + '</p>';
+    cap.classList.remove('cap-in');
+    void cap.offsetWidth;
+    cap.classList.add('cap-in');
+  }
+  function lightWords(upTo) { $$('#csCap .cw:not(.on)').forEach(w => { if (Number(w.dataset.at) <= upTo) w.classList.add('on'); }); }
+  // Voices that don't report each word: light them at the usual speaking pace
+  function runCaption(text) {
+    clearInterval(capTimer);
+    const t0 = performance.now();
+    capTimer = setInterval(() => {
+      const upTo = (performance.now() - t0) / 62;
+      lightWords(upTo);
+      if (upTo > text.length) clearInterval(capTimer);
+    }, 90);
+  }
+  let coachTimer = 0;
+  function showCallCoach(m) {
+    const el = $('#csCoach');
+    if (!el || !coachOn() || !m.text) return;
+    const ql = Q[m.q];
+    el.className = 'cs-coach on q' + m.q;
+    el.innerHTML = '<span class="coach-tag">' + icon(ql.icon, 12) + ql.label + '</span><span>' + esc(m.text) + '</span>';
+    clearTimeout(coachTimer);
+    coachTimer = setTimeout(() => { el.classList.remove('on'); }, 9000);
+  }
+  function showHeard(text, kind, clarity) {
+    const el = $('#csYou');
+    if (!el) return;
+    const label = kind === 'live' ? 'Hearing you…' : kind === 'miss' ? 'Didn’t catch that — read one of the replies' : 'You said';
+    el.dataset.kind = kind;
+    el.innerHTML = '<span class="cy-k">' + icon(kind === 'miss' ? 'alert' : 'mic', 12) + esc(label) +
+      (kind === 'ok' ? '<b class="cy-ok">' + icon('check', 12) + Math.round(clarity * 100) + '% clear</b>' : '') + '</span>' +
+      (text ? '<p>“' + esc(text) + '”</p>' : '');
+  }
+
+  /* ---------- answering out loud: speech recognition (Chrome, Edge) ----------
+     When it's your turn on the call the microphone listens by itself. When you pause, what it heard
+     is compared with the replies on screen: the one you said is sent, with how clearly you said it.
+     No microphone, no permission or another browser: the replies can be tapped instead. */
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  const mic = { rec: null, id: null, on: false, finals: '', interim: '', silence: 0, talk: 0, retryAt: 0, asked: false, misses: 0, blocked: SpeechRec ? null : 'unsupported' };
+  const voiceAnswers = () => !mic.blocked;
+  function micBlockedNote() {
+    return { unsupported: 'Voice answers work in Chrome or Edge. Here, choose what to say.',
+      denied: 'The microphone is blocked. Allow it in the address bar to answer out loud — for now, choose what to say.',
+      network: 'Voice answers need an internet connection. Choose what to say instead.',
+      nomic: 'No microphone found. Choose what to say instead.' }[mic.blocked] || '';
+  }
+  function wantMic(c) {
+    return voiceAnswers() && !!c && c.call && ui.view === 'shift' && ui.active === c.id && c.status === 'agent' && !c.onHold &&
+      !!E.st && !E.st.paused && !ui.modal && !callerSpeaking(c) && !(speech && speech.speaking) && !(isPhone() && ui.mview !== 'chat');
+  }
+  function syncMic() {
+    const c = activeConv();
+    if (wantMic(c)) { if ((!mic.on || mic.id !== c.id) && performance.now() >= mic.retryAt) startMic(c); }
+    else if (mic.on) stopMic();
+  }
+  function startMic(c) {
+    stopMic();
+    let rec;
+    try { rec = new SpeechRec(); } catch (e) { blockMic('unsupported'); return; }
+    rec.lang = 'en-US';
+    rec.continuous = true;
+    rec.interimResults = true;
+    mic.rec = rec; mic.id = c.id; mic.on = true; mic.finals = ''; mic.interim = '';
+    rec.onresult = e => {
+      if (mic.rec !== rec) return;
+      let fin = '', mid = '';
+      for (let k = 0; k < e.results.length; k++) {
+        const r = e.results[k];
+        if (r.isFinal) fin += r[0].transcript + ' '; else mid += r[0].transcript + ' ';
+      }
+      mic.finals = fin; mic.interim = mid;
+      showHeard((fin + mid).trim(), 'live');
+      // While you speak, the caller isn't waiting in silence
+      E.talking(c.id, true);
+      clearTimeout(mic.talk);
+      mic.talk = setTimeout(() => E.talking(c.id, false), 2500);
+      clearTimeout(mic.silence);
+      mic.silence = setTimeout(() => { if (mic.rec === rec) judgeSpeech(c, (mic.finals + ' ' + mic.interim).trim()); }, mid.trim() ? 1500 : 800);
+    };
+    rec.onerror = e => {
+      if (mic.rec !== rec) return;
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') blockMic('denied');
+      else if (e.error === 'network') blockMic('network');
+      else if (e.error === 'audio-capture') blockMic('nomic');
+      // no-speech / aborted: it simply starts again
+    };
+    rec.onend = () => {
+      if (mic.rec !== rec) return;
+      mic.rec = null;
+      mic.on = false;
+      mic.retryAt = performance.now() + 300;   // browsers stop listening after a while: the next tick restarts it
+      updateCallStage(c);
+    };
+    try { rec.start(); } catch (e) { mic.rec = null; mic.on = false; mic.retryAt = performance.now() + 1000; }
+    updateCallStage(c);
+  }
+  function stopMic() {
+    clearTimeout(mic.silence);
+    clearTimeout(mic.talk);
+    const rec = mic.rec;
+    mic.rec = null;
+    mic.on = false;
+    if (mic.id) E.talking(mic.id, false);
+    if (rec) { try { rec.abort(); } catch (e) { /* ignore */ } }
+  }
+  function blockMic(why) {
+    mic.blocked = why;
+    stopMic();
+    const c = activeConv();
+    if (c && c.call) { renderComposer(c); updateCallStage(c); }
+  }
+  function setMicUI(c) {
+    const el = $('#vcMic');
+    if (!el) return;
+    const first = c.sc.customer.first;
+    const [k, t] = c.onHold ? ['hold', 'On hold'] : mic.on && mic.id === c.id ? ['listen', 'Listening… speak now']
+      : callerSpeaking(c) || (speech && speech.speaking) ? ['wait', 'Mic waits while ' + first + ' talks'] : ['wait', 'Turning the mic on…'];
+    if (el.dataset.state !== k) el.dataset.state = k;
+    const sp = el.lastChild;
+    if (sp && sp.textContent !== t) sp.textContent = t;
+  }
+  function voiceComposerHTML(c, first) {
+    const node = c.sc.nodes[c.node];
+    return '<div class="cmp vcmp">' +
+      '<div class="cmp-head"><div class="cmp-tabs"><span class="cmp-tab on">' + icon('mic', 14) + 'Say it out loud</span>' +
+        '<span class="cmp-sub">Read the best reply to ' + first + ', clearly</span></div>' +
+        '<div class="cmp-hint"><span class="vc-mic" id="vcMic" data-state="wait">' + icon('mic', 13) + '<span></span></span><span class="sep"></span>' +
+          '<span class="cmp-timer t-' + moodOf(c.patience).k + '" id="cmpTimer" title="Time ' + first + ' has been waiting on you">' + icon('timer', 13) + '<span>' + fmtDur(E.st.clock - c.turnStart) + '</span></span></div></div>' +
+      '<div class="opts vopts" role="list" aria-label="Replies you can say">' + c.order.map((i, k) =>
+        '<div class="opt vopt" style="--k:' + k + '" data-i="' + i + '" role="listitem"><span class="opt-k">' + (k + 1) + '</span><span class="opt-t">' + esc(E.fill(node.o[i].t, c)) + '</span></div>').join('') +
+      '</div>' +
+      '<div class="cmp-foot"><span class="cmp-note">' + icon('info', 13) + (c.onHold ? first + ' is on hold. Resume the call to talk.' : 'Speak when the mic says Listening, then pause for a second. Headphones help the mic hear only you.') + '</span></div>' +
+    '</div>';
+  }
+
+  // Which reply was said: the words of each reply that were heard, the words only that reply has counting most
+  const STOP_WORDS = new Set(('a an the and or but so to of in on at for with from by is are was were be been am i im id ill ive you your youre youll ' +
+    'we our it its this that these those me my us they them their there here just can could would will do does did have has had not if as about please oh um uh').split(' '));
+  const stemWord = w => (w.length > 4 ? w.replace(/(ing|ed|es|s)$/, '') : w);
+  const contentWords = t => String(t).toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/)
+    .filter(w => w && !STOP_WORDS.has(w)).map(stemWord);
+  function matchReply(said, c) {
+    const node = c.sc.nodes[c.node];
+    const heard = new Set(contentWords(said));
+    const opts = c.order.map(i => ({ i, w: new Set(contentWords(E.fill(node.o[i].t, c))) }));
+    const df = {};
+    opts.forEach(o => o.w.forEach(w => { df[w] = (df[w] || 0) + 1; }));
+    const scored = opts.map(o => {
+      let all = 0, got = 0, hit = 0;
+      o.w.forEach(w => { const wt = 1 / df[w]; all += wt; if (heard.has(w)) { got += wt; hit++; } });
+      return { i: o.i, score: all ? got / all : 0, clarity: o.w.size ? hit / o.w.size : 0 };
+    }).sort((a, b) => b.score - a.score);
+    const best = scored[0] || { score: 0, clarity: 0 }, next = scored[1] || { score: 0 };
+    return { ok: best.score >= 0.4 && best.clarity >= 0.3 && best.score - next.score >= 0.1, i: best.i, clarity: best.clarity };
+  }
+  function judgeSpeech(c, said) {
+    if (!said || c.status !== 'agent' || ui.active !== c.id) return;
+    const m = matchReply(said, c);
+    stopMic();
+    if (m.ok) {
+      mic.misses = 0;
+      showHeard(said, 'ok', m.clarity);
+      E.send(c.id, m.i, { said, clarity: m.clarity });
+      return;
+    }
+    // Like a real caller: they didn't understand, so you say it again
+    mic.misses++;
+    showHeard(said, 'miss');
+    speakLine(c, mic.misses % 2 ? 'Sorry, I didn’t catch that. Could you say that again?' : 'Sorry, could you repeat that?');
+  }
+  // For trying voice answers without a microphone (e.g. from the browser console): SR.voice.hear('…')
+  SR.voice = { hear(text) { const c = activeConv(); if (c && c.call && c.status === 'agent') judgeSpeech(c, String(text)); } };
   if (speech) { try { speech.getVoices(); } catch (e) { /* the list loads later */ } }
 
   const callCardEl = document.createElement('div');
@@ -2068,6 +2362,7 @@
   function ringLeftLabel(c) { return Math.max(0, Math.ceil((E.RING_MS - (E.st.clock - c.arrivedAt)) / 1000)) + 's left'; }
   function callsOff() {
     if (ringEl && !ringEl.paused) { try { ringEl.pause(); } catch (e) { /* ignore */ } }
+    stopMic();
     hushCalls();
     callCardEl.classList.remove('on');
     callCardEl._id = null;
@@ -2077,8 +2372,17 @@
     if (!c || c.status !== 'ringing') return;
     // The caller's first line is spoken a moment later: phones only allow it if speech starts inside this press
     if (speech && store.sound) { try { speech.cancel(); speech.speak(new SpeechSynthesisUtterance('')); } catch (e) { /* speech unavailable */ } }
+    askMic();
     E.answer(id);
     select(id, true);
+  }
+  // The browser asks for the microphone the first time a call is answered (inside the press)
+  function askMic() {
+    if (!SpeechRec || mic.asked || mic.blocked || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    mic.asked = true;
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(s => s.getTracks().forEach(t => t.stop()))
+      .catch(e => blockMic(e && e.name === 'NotFoundError' ? 'nomic' : 'denied'));
   }
   function toggleHold(c) {
     if (c && c.call && c.status === 'agent') E.hold(c.id, !c.onHold);
@@ -2485,6 +2789,8 @@
     renderStats();
     const rc = ringingCall();
     if (rc) updateCallCard(rc);
+    if (c && c.call) updateCallStage(c);
+    syncMic();
     const me = $('#meStatus');
     if (me) {
       const v = st.convs.some(x => x.call && x.answeredAt != null && (x.status === 'agent' || x.status === 'customer')) ? 'On a call' : 'Available';
@@ -2516,6 +2822,7 @@
       stat('Missed', String(k.missed), k.missed ? 'tone-danger' : 'tone-success') +
       stat('Avg. time to answer', secs(k.avgAnswer)) +
       stat('Times on hold', String(k.holds)) +
+      stat('Speaking clarity', k.clarity == null ? '—' : Math.round(k.clarity * 100) + '%') +
     '</section>';
   }
 
@@ -2669,6 +2976,7 @@
     return '<div class="dec q' + d.q + '"><span class="dec-n">' + (i + 1) + '</span><div class="dec-c">' +
       (d.prompt ? '<div class="dec-q"><span class="lbl">Customer</span><p>“' + esc(d.prompt) + '”</p></div>' : '') +
       '<div class="dec-a"><span class="lbl">Your reply <span class="qpill q' + d.q + '">' + ql.label + '</span><span class="dec-rt">' + icon('timer', 12) + ' ' + secs(d.rt) + '</span></span><p>' + esc(d.chosen) + '</p></div>' +
+      (d.said != null ? '<div class="dec-said">' + icon('mic', 13) + '<span>You said: “' + esc(d.said) + '”</span><b>' + Math.round((d.clarity || 0) * 100) + '% clear</b></div>' : '') +
       (d.fb ? '<div class="dec-fb">' + icon(ql.icon, 14) + '<span>' + esc(d.fb) + '</span></div>' : '') +
       (d.best ? '<div class="dec-best"><span class="lbl">' + icon('sparkle', 12) + 'Best reply</span><p>' + esc(d.best) + '</p></div>' : '') +
     '</div></div>';
@@ -2880,11 +3188,11 @@
       case 'ss-cust': store.customers = t.dataset.v === 'all' ? null : Number(t.dataset.v); saveStore(); refreshShiftSettings(); break;
       case 'ss-diff': store.difficulty = SS.difficulty(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
       case 'ss-reply': store.reply = SS.replySpeed(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
-      case 'ss-mode': store.mode = SS.mode(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
+      case 'ss-mode': store.channels = SS.mode(t.dataset.v).id; saveStore(); refreshShiftSettings(); break;
       case 'ss-defaults':
         store.customers = SS.DEFAULT_SETTINGS.customers;
         store.reply = SS.DEFAULT_SETTINGS.reply;
-        store.mode = SS.DEFAULT_SETTINGS.mode;
+        store.channels = SS.DEFAULT_SETTINGS.mode;
         if (ui.view !== 'setup') store.difficulty = SS.DEFAULT_SETTINGS.difficulty;
         saveStore(); refreshShiftSettings();
         { const done = $('.ss-actions .btn-primary', overlay); if (done) done.focus(); }
@@ -2911,6 +3219,15 @@
       case 'toggle-closed': ui.closedOpen = !ui.closedOpen; renderList(); break;
       case 'sound': store.sound = !store.sound; saveStore(); updateSoundBtn(); if (store.sound) unlockAudio(); else { stopVoice(); hushCalls(); } syncRing(); break;
       case 'answer': answerCall(t.dataset.id); break;
+      case 'captions': {
+        store.captions = store.captions === false;
+        saveStore();
+        t.classList.toggle('on', store.captions); t.setAttribute('aria-pressed', String(store.captions));
+        const cap = $('#csCap');
+        if (cap) cap.classList.toggle('off', !captionsOn());
+        break;
+      }
+      case 'mic-retry': mic.blocked = null; mic.asked = false; askMic(); if (c) renderComposer(c); break;
       case 'hold': toggleHold(c); break;
       case 'pause': openModal('pause'); break;
       case 'shortcuts': openModal('shortcuts'); break;
@@ -2941,7 +3258,7 @@
 
   document.addEventListener('dblclick', e => {
     const t = e.target.closest('.opt');
-    if (!t) return;
+    if (!t || t.classList.contains('vopt')) return;
     const c = activeConv();
     if (!c || c.status !== 'agent') return;
     chooseOption(c, Number(t.dataset.i));
@@ -3018,6 +3335,7 @@
     const c = activeConv();
     if (!c) return;
     if ((e.key === 'h' || e.key === 'H') && c.call && c.status === 'agent') { e.preventDefault(); sfx('back'); toggleHold(c); return; }
+    if (c.call && c.status === 'agent' && voiceAnswers()) return;   // on a call you answer out loud
     if (c.status === 'agent') {
       if (/^[1-9]$/.test(e.key)) {
         const k = Number(e.key) - 1;
@@ -3081,7 +3399,8 @@
     },
     hold(c) {
       if (ui.view !== 'shift') return;
-      if (ui.active === c.id) { renderCallBar(c); renderComposer(c); updateHeaderLive(c); }
+      if (ui.active === c.id) { renderCallBar(c); renderComposer(c); updateHeaderLive(c); updateCallStage(c); }
+      syncMic();
       renderList();
     },
     arrive(c) {
@@ -3097,6 +3416,7 @@
     message(c, m) {
       if (ui.view !== 'shift') return;
       if (c.call && m.from === 'customer' && m.spoken) speakLine(c, m.text);
+      if (c.call && m.from === 'coach' && ui.active === c.id) showCallCoach(m);
       if (ui.active === c.id) {
         appendMessage(c, m);
         c.unread = 0;
@@ -3111,6 +3431,7 @@
     },
     typing(c) {
       if (ui.view !== 'shift') return;
+      if (c.call) updateCallStage(c);
       if (ui.active === c.id) {
         renderTyping(c);
         updateHeaderLive(c);
@@ -3121,13 +3442,14 @@
     status(c) {
       if (ui.view !== 'shift') return;
       if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); renderTyping(c); renderCallBar(c); }
-      if (c.call) { renderCallCard(); syncRing(); }
+      if (c.call) { renderCallCard(); syncRing(); updateCallStage(c); syncMic(); }
       renderList();
       renderStats();
     },
     turn(c) {
       if (ui.view !== 'shift') return;
       if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); renderCallBar(c); }
+      if (c.call && ui.active === c.id) { const y = $('#csYou'); if (y) { y.innerHTML = ''; y.dataset.kind = ''; } updateCallStage(c); syncMic(); }
       renderList();
       renderStats();
     },
@@ -3136,7 +3458,7 @@
       if (ui.active === c.id) { renderComposer(c); updateHeaderLive(c); renderTyping(c); renderCallBar(c); }
       if (c.outcome === 'abandoned') alarm(c, 'left');
       else if (c.outcome === 'missed') alarm(c, 'missed');
-      if (c.call) { renderCallCard(); syncRing(); }
+      if (c.call) { renderCallCard(); syncRing(); updateCallStage(c); syncMic(); }
       renderList();
       renderStats();
     },
@@ -3158,6 +3480,7 @@
     pause(paused) {
       if (ui.view !== 'shift') return;
       syncRing();
+      syncMic();
       if (paused) hushCalls();
     },
     dayEnd(rep) {
