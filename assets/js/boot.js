@@ -67,7 +67,7 @@ window.SR = window.SR || {};
         '</' + l.tag + '>').join('') +
       '<button type="button" class="boot-logo" aria-label="Start">' +
         SR.logo.tile(176) +
-        '<span class="boot-hint">' + (touch ? 'Tap to start' : 'Click to start') + '</span>' +
+
       '</button>';
     document.body.appendChild(root);
     document.documentElement.classList.add('boot-on');

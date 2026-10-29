@@ -231,6 +231,7 @@ function route() {
   S.view = r;
   if (S.note && S.note.screen !== r.name) S.note = null;
   S.menu = null; S.drawer = false;
+  playFx('fx-enter', 900);                                  // entrance animation only when the page changes
   render();
   const main = document.getElementById('main');
   if (main) main.focus({ preventScroll: true });
@@ -261,7 +262,14 @@ function render() {
   }
   root.innerHTML = html + (S.dialog ? dialogHtml() : '') + (S.toast ? '<div class="toast" role="status">' + ic('checkCircle', 16) + '<span>' + esc(S.toast) + '</span></div>' : '');
 }
+// Animations run once: a class on #root for a moment, so later re-renders don't replay them
+function playFx(cls, ms) {
+  root.classList.add(cls);
+  clearTimeout(playFx[cls]);
+  playFx[cls] = setTimeout(() => root.classList.remove(cls), ms);
+}
 function toast(text) {
+  playFx('fx-toast', 600);
   S.toast = text; render();
   clearTimeout(toast.t);
   toast.t = setTimeout(() => { S.toast = null; render(); }, 3200);
@@ -885,7 +893,7 @@ function dialogHtml() {
   return '<div class="dialog-wrap" data-act="close-dialog"><form class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgT" data-form="dialog"><div class="dialog-h"><span class="ic" style="color:var(--' + (d.danger ? 'danger' : 'primary') + ')">' + ic(d.icon || 'info', 22) + '</span><h2 id="dlgT">' + esc(d.title) + '</h2></div>' +
     '<div class="dialog-b"><div class="stack">' + formErr('dialog') + d.body + '</div></div><div class="dialog-f">' + btn('Cancelar', { act: 'close-dialog' }) + submit(d.confirm, 'dialog', { kind: d.danger ? 'danger' : 'primary' }) + '</div></form></div>';
 }
-function openDialog(d) { S.dialog = d; S.err.dialog = ''; render(); setTimeout(() => { const f = document.querySelector('.dialog input, .dialog select, .dialog textarea, .dialog .btn-primary, .dialog .btn-danger'); if (f) f.focus(); }, 20); }
+function openDialog(d) { playFx('fx-dialog', 500); S.dialog = d; S.err.dialog = ''; render(); setTimeout(() => { const f = document.querySelector('.dialog input, .dialog select, .dialog textarea, .dialog .btn-primary, .dialog .btn-danger'); if (f) f.focus(); }, 20); }
 
 /* ================================================================
    Actions

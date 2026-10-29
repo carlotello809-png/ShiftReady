@@ -38,3 +38,55 @@
 .as-plan { margin: 0; padding-left: 16px; font-size: 12px; color: var(--text-2); list-style: disc; }
 .as-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .as-x { margin-left: 4px; background: none; border: 0; cursor: pointer; color: inherit; font-size: 14px; line-height: 1; }
+
+/* ================================================================
+   Visual polish: softer shapes, centred sign-in card, gentle animations
+   ================================================================ */
+:root { --radius: 10px; --ease-out: cubic-bezier(.23, 1, .32, 1); }
+.card { border-radius: 14px; box-shadow: 0 1px 2px rgba(16, 36, 58, .04), 0 4px 14px rgba(16, 36, 58, .05); transition: box-shadow 220ms ease, transform 220ms var(--ease-out); }
+.grid > .card:hover { box-shadow: 0 2px 4px rgba(16, 36, 58, .05), 0 10px 26px rgba(16, 36, 58, .09); transform: translateY(-2px); }
+:root[data-theme="dark"] .card { box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+.card-h { padding-top: 16px; }
+.btn { border-radius: 10px; transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 120ms ease, box-shadow 160ms ease; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn-primary { box-shadow: 0 1px 2px rgba(43, 98, 227, .25), 0 4px 12px rgba(43, 98, 227, .18); }
+.input, .select, .textarea { border-radius: 10px; transition: border-color 160ms ease, box-shadow 160ms ease; }
+.input:focus, .select:focus, .textarea:focus { box-shadow: 0 0 0 4px var(--primary-soft); }
+.tag { border-radius: 999px; }
+.sb-link { border-radius: 10px; margin: 1px 0; }
+.ws-btn, .me-btn, .icon-btn { border-radius: 10px; }
+.page { padding-top: var(--sp-8); }
+.page-h { align-items: center; }
+.page-h h1 { letter-spacing: -.02em; }
+
+/* Sign-in and account screens: a centred card */
+.auth-main .auth-card { padding: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 2px 6px rgba(16, 36, 58, .05), 0 18px 48px rgba(16, 36, 58, .10); }
+.auth-main .state { padding: 36px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 18px 48px rgba(16, 36, 58, .10); }
+.dialog { border-radius: 16px; }
+.toast { border-radius: 12px; }
+
+/* Entrance when the page changes: header, then the blocks one after another */
+@keyframes fxUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes fxPop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes fxFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fxSlide { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+.fx-enter .page > * { animation: fxUp 480ms var(--ease-out) both; }
+.fx-enter .page > :nth-child(2) { animation-delay: 60ms; }
+.fx-enter .page > :nth-child(3) { animation-delay: 120ms; }
+.fx-enter .page > :nth-child(4) { animation-delay: 180ms; }
+.fx-enter .page > :nth-child(n+5) { animation-delay: 220ms; }
+.fx-enter .page .grid > * { animation: fxUp 480ms var(--ease-out) both; }
+.fx-enter .page .grid > :nth-child(2) { animation-delay: 90ms; }
+.fx-enter .page .grid > :nth-child(3) { animation-delay: 150ms; }
+.fx-enter .page .grid > :nth-child(n+4) { animation-delay: 200ms; }
+.fx-enter .auth-card, .fx-enter .auth-main .state { animation: fxPop 520ms var(--ease-out) both; }
+.fx-enter .auth-side > * { animation: fxUp 600ms var(--ease-out) both; }
+.fx-enter .auth-side > :nth-child(2) { animation-delay: 100ms; }
+.fx-dialog .dialog-wrap { animation: fxFade 200ms ease both; }
+.fx-dialog .dialog { animation: fxPop 280ms var(--ease-out) both; }
+.fx-toast .toast { animation: fxSlide 320ms var(--ease-out) both; }
+.menu { border-radius: 12px; animation: fxPop 160ms var(--ease-out) both; transform-origin: top; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-enter *, .fx-dialog *, .fx-toast *, .menu { animation: none !important; }
+  .card, .btn, .grid > .card:hover { transition: none; transform: none; }
+}

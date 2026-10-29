@@ -248,7 +248,7 @@
     const b = e.target.closest('[data-tc]');
     if (!b || !el.contains(b)) return;
     const a = b.dataset.tc;
-    if (a === 'toggle') { S.open = !S.open; save(); render(); }
+    if (a === 'toggle') { S.open = !S.open; save(); render(); if (S.open) { el.classList.add('tc-opening'); setTimeout(() => el && el.classList.remove('tc-opening'), 350); } }
     if (a === 'new') { S = fresh(); files = []; save(); render(); }
     if (a === 'rm') { files = files.filter(f => f.id !== b.dataset.id); render(); }
     if (a === 'del') { S.msgs.splice(Number(b.dataset.i), 1); save(); render(); }

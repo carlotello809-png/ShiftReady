@@ -305,8 +305,8 @@
           '<section class="lb-hero">' +
             themeButton('lb-theme') +
             '<div class="lb-brand">' +
-              SR.logo.tile(108, { label: 'ShiftReady', cls: 'lb-logo' }) +
-              '<span class="howto-wrap"><button class="howto-btn" data-act="howto" aria-pressed="false" aria-label="How to start"><span class="howto-t">Press!</span></button></span>' +
+              // Only the logo: pressing it plays the spoken "how to start" guide
+              '<button class="howto-btn lb-logo-btn" data-act="howto" aria-pressed="false" aria-label="ShiftReady — escuchar cómo empezar" title="Escuchar cómo empezar">' + SR.logo.tile(108, { cls: 'lb-logo' }) + '</button>' +
             '</div>' +
             '<div class="lb-stage">' +
               '<div class="howto-cap" aria-live="polite"></div>' +

@@ -69,3 +69,35 @@
 .lb-account span { font-size: 13px; color: var(--ink-2); }
 .lb-account .btn { flex: none; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
 @media (max-width: 640px) { .lb-account { flex-direction: column; align-items: stretch; text-align: center; } }
+
+/* ---------- Logo only (the old "Press!" button is gone; the logo plays the spoken guide) ---------- */
+.howto-btn.lb-logo-btn { height: auto; min-width: 0; padding: 0; background: none; border-radius: 26px; overflow: visible; color: inherit; transition: transform 460ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 200ms ease; }
+.howto-btn.lb-logo-btn.playing { background: none; filter: drop-shadow(0 0 0 rgba(22, 168, 116, .5)); animation: logoBreath 1.8s ease-in-out infinite; }
+@media (hover: hover) and (pointer: fine) {
+  .howto-btn.lb-logo-btn:hover, .howto-btn.lb-logo-btn.playing:hover { background: none; transform: scale(1.04) rotate(-1.5deg); }
+}
+.howto-btn.lb-logo-btn .press-ripple { display: none; }
+@keyframes logoBreath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+/* ---------- Chat: slides in with the page, opens and closes smoothly ---------- */
+/* No width animation: animating layout every frame stutters on slow machines; opacity and transform only */
+.tc { overflow: hidden; animation: tcIn 520ms cubic-bezier(.23, 1, .32, 1) 120ms both; }
+@keyframes tcIn { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+.tc .tc-body, .tc .tc-head h2, .tc .tc-badge, .tc [data-tc="new"] { transition: opacity 220ms ease 120ms, visibility 0s linear 0s; }
+.tc.closed .tc-body, .tc.closed .tc-head h2, .tc.closed .tc-badge, .tc.closed [data-tc="new"] { display: revert; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 120ms ease, visibility 0s linear 120ms; }
+.tc.closed .tc-body { position: absolute; inset: 60px 0 0 0; }
+.tc.closed .tc-head h2, .tc.closed .tc-badge, .tc.closed [data-tc="new"] { position: absolute; }
+.tc-toggle svg { transition: transform 300ms cubic-bezier(.23, 1, .32, 1); }
+.tc-msg:last-child { animation: tcMsg 320ms cubic-bezier(.23, 1, .32, 1) both; }
+@keyframes tcMsg { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.tc-day { transition: transform 200ms ease, box-shadow 200ms ease; }
+@media (hover: hover) { .tc-day:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(16, 36, 58, .08); } }
+@media (max-width: 1000px) { .tc.closed .tc-head h2 { position: static; opacity: 1; visibility: visible; } }
+@media (prefers-reduced-motion: reduce) {
+  .tc, .tc-msg:last-child, .howto-btn.lb-logo-btn.playing { animation: none; }
+  .tc .tc-body, .tc-day, .howto-btn.lb-logo-btn { transition: none; }
+}
+/* Opening: the chat content glides in from the left (transform + opacity only) */
+.tc.tc-opening .tc-body { animation: tcBody 300ms cubic-bezier(.23, 1, .32, 1) both; }
+@keyframes tcBody { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tc.tc-opening .tc-body { animation: none; } }
